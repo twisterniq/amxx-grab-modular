@@ -1,0 +1,20 @@
+[en]
+GRAB_RENDERING_CVAR_ENABLED = Plugin work^n0 - disabed^n1 - enabled
+GRAB_RENDERING_CVAR_COLOR_RED = Red color of glow (RGB)
+GRAB_RENDERING_CVAR_COLOR_GREEN = Green color of glow (RGB)
+GRAB_RENDERING_CVAR_COLOR_BLUE = Blue color of glow (RGB)
+GRAB_RENDERING_CVAR_AMOUNT = Glow amount
+
+[es]
+GRAB_RENDERING_CVAR_ENABLED = Habilitar el plugin^n0 - habilitar^n1 - deshabilitar
+GRAB_RENDERING_CVAR_COLOR_RED = Color rojo del brillo (RGB)
+GRAB_RENDERING_CVAR_COLOR_GREEN = Color verde del brillo (RGB)
+GRAB_RENDERING_CVAR_COLOR_BLUE = Color azul del brillo (RGB)
+GRAB_RENDERING_CVAR_AMOUNT = El tamaño del brillo
+
+[ru]
+GRAB_RENDERING_CVAR_ENABLED = Работа плагина^n0 - выкл.^n1 - вкл.
+GRAB_RENDERING_CVAR_COLOR_RED = Красный цвет свечения (RGB)
+GRAB_RENDERING_CVAR_COLOR_GREEN = Зелёный цвет свечения (RGB)
+GRAB_RENDERING_CVAR_COLOR_BLUE = Синий цвет свечения (RGB)
+GRAB_RENDERING_CVAR_AMOUNT = Размер свечения
