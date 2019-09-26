@@ -13,7 +13,7 @@
  * @return          PLUGIN_CONTINUE to let using the command
  *                  PLUGIN_HANDLED or higher to prevent using the command
  */
-forward grab_on_use_command(id, entity);
+forward grab_on_use_command(id);
 
 /**
  * Called when player starts to grab an entity.
