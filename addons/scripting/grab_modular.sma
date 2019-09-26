@@ -6,7 +6,7 @@
 #pragma semicolon 1
 
 new const PLUGIN_NAME[] = "Grab Modular";
-new const PLUGIN_VERSION[] = "1.0.0";
+new const PLUGIN_VERSION[] = "1.0.2";
 new const PLUGIN_AUTHOR[] = "w0w";
 
 /****************************************************************************************
@@ -129,6 +129,9 @@ public NativeHandle_IsPlayerGrabbing(iPlugin, iParams)
 	new iPlayer = get_param(arg_player);
 
 	CHECK_PLAYER(iPlayer)
+
+	if(g_ePlayerGrabData[iPlayer][GRABBED] == GRAB_ENABLED)
+		return 0;
 
 	return g_ePlayerGrabData[iPlayer][GRABBED];
 }
@@ -422,15 +425,18 @@ bool:func_IsEntityGrabbed(iEntity)
 
 func_SetEntityGrabbed(id, iTarget)
 {
+	g_ePlayerGrabData[id][GRABBED] = iTarget;
+
 	new iResult;
 	ExecuteForward(g_iForward[FORWARD_ON_START], iResult, id, iTarget);
 
 	if(iResult >= PLUGIN_HANDLED)
+	{
+		func_GrabDisable(id);
 		return;
+	}
 
 	new bool:bPlayer = is_user_valid(iTarget);
-
-	g_ePlayerGrabData[id][GRABBED] = iTarget;
 
 	if(bPlayer)
 	{
@@ -455,6 +461,12 @@ func_SetEntityGrabbed(id, iTarget)
 func_GrabThink(id)
 {
 	new iTarget = g_ePlayerGrabData[id][GRABBED];
+
+	if(is_user_valid(iTarget) && !is_user_alive(iTarget) || !is_user_valid(iTarget) && !is_entity(iTarget))
+	{
+		func_GrabDisable(id);
+		return;
+	}
 
 	new iResult;
 	ExecuteForward(g_iForward[FORWARD_ON_GRABBING], iResult, id, iTarget);
