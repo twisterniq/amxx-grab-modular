@@ -4,7 +4,7 @@
 #include <grab_menu>
 
 new const PLUGIN_NAME[] = "Grab Menu: Core";
-new const PLUGIN_VERSION[] = "1.0.0";
+new const PLUGIN_VERSION[] = "1.0.1";
 new const PLUGIN_AUTHOR[] = "w0w";
 
 /****************************************************************************************
