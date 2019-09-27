@@ -4,7 +4,7 @@
 #include <grab_menu>
 
 new const PLUGIN_NAME[] = "Grab Menu: Core";
-new const PLUGIN_VERSION[] = "1.0.1";
+new const PLUGIN_VERSION[] = "1.0.2";
 new const PLUGIN_AUTHOR[] = "w0w";
 
 /****************************************************************************************
@@ -384,7 +384,7 @@ public func_GrabMenu_Handler(id, iKey)
 			new iEntity = is_player_grabbing(id);
 
 			new iResult;
-			ExecuteForward(g_iForward[FORWARD_MENU_ITEM_SELECTED], iResult, id, iEntity, iItemInArray);
+			ExecuteForward(g_iForward[FORWARD_MENU_ITEM_SELECTED], iResult, id, iEntity, iItemInArray + 1);
 
 			if(iResult >= PLUGIN_HANDLED)
 				return;
