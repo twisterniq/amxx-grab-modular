@@ -3,7 +3,7 @@
 #endif
 #define _grab_menu_const_included
 
-#define MAX_MENUNAME_LENGTH 32
+#define MAX_MENUNAME_LENGTH 64
 #define MAX_MENUKEY_LENGTH 32
 
 enum GrabItemTeam (<<= 1)
