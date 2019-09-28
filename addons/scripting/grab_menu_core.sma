@@ -4,7 +4,7 @@
 #include <grab_menu>
 
 new const PLUGIN_NAME[] = "Grab Menu: Core";
-new const PLUGIN_VERSION[] = "1.0.2";
+new const PLUGIN_VERSION[] = "1.0.3";
 new const PLUGIN_AUTHOR[] = "w0w";
 
 /****************************************************************************************
@@ -230,7 +230,7 @@ public NativeHandle_FindItemByKey(iPlugin, iParams)
 
 public refwd_DropClient_Post(const id)
 {
-	ArrayDestroy(g_aPlayerMenuItems[id]);
+	ArrayClear(g_aPlayerMenuItems[id]);
 }
 
 public grab_on_start(id, iEntity)
