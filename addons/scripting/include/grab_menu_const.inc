@@ -15,7 +15,7 @@ enum GrabItemTeam (<<= 1)
 
 enum GrabItemProp
 {
-    GRAB_PROP_NAME = 1,
+    GRAB_PROP_NAME,
     GRAB_PROP_KEY,
     GRAB_PROP_TEAM,
     GRAB_PROP_TARGET_TEAM,
