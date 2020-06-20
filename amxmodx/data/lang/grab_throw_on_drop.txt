@@ -1,0 +1,11 @@
+[en]
+GRAB_THROW_ON_DROP_CVAR_ENABLED = Enable the throw function^n0 - disabed^n1 - enabled
+GRAB_THROW_ON_DROP_CVAR_VELOCITY = The strength of the throw, the more the further the throw will be
+
+[es]
+GRAB_THROW_ON_DROP_CVAR_ENABLED = Habilitar la función de lanzamiento^n0 - habilitar^n1 - deshabilitar
+GRAB_THROW_ON_DROP_CVAR_VELOCITY = La fuerza del lanzamiento, cuanto más, más lejos
+
+[ru]
+GRAB_THROW_ON_DROP_CVAR_ENABLED = Включить функцию броска^n0 - выкл.^n1 - вкл.
+GRAB_THROW_ON_DROP_CVAR_VELOCITY = Сила броска, чем больше тем дальше будет бросок

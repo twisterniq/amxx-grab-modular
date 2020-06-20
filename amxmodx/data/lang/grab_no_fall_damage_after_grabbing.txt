@@ -1,0 +1,8 @@
+[en]
+GRAB_NO_FALL_DAMAGE_AFTER_GRABBING_CVAR_ENABLED = Plugin work^n0 - disabed^n1 - enabled
+
+[es]
+GRAB_NO_FALL_DAMAGE_AFTER_GRABBING_CVAR_ENABLED = Habilitar el plugin^n0 - habilitar^n1 - deshabilitar
+
+[ru]
+GRAB_NO_FALL_DAMAGE_AFTER_GRABBING_CVAR_ENABLED = Работа плагина^n0 - выкл.^n1 - вкл.

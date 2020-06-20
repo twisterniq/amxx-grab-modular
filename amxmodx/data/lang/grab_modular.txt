@@ -1,0 +1,20 @@
+[en]
+GRAB_CVAR_ENABLED = Plugin work^n0 - disabled^n1 - enabled
+GRAB_CVAR_MIN_DISTANCE = Minimum distance between grabber and entity grabbed
+GRAB_CVAR_MAX_DISTANCE = Maximum distance to grab an entity
+GRAB_CVAR_FORCE = The force of the grabbing player
+GRAB_CVAR_LADDER_SUPPORT = Ladder support: disable if player is on a ladder^n0 - disabled^n1 - enabled
+
+[es]
+GRAB_CVAR_ENABLED = Habilitar la funcionalidad del grab^n0 - deshabilitar^n1 - habilitar
+GRAB_CVAR_MIN_DISTANCE = Distancia mínima a la que se puede acercar
+GRAB_CVAR_MAX_DISTANCE = Distancia máxima para poder coger
+GRAB_CVAR_FORCE = Fuerza con la que se mueve al jugador con el grab
+GRAB_CVAR_LADDER_SUPPORT = Soporte de escaleras: deshabilitar si un jugador está subido^n0 - deshabilitar^n1 - habilitar
+
+[ru]
+GRAB_CVAR_ENABLED = Работа граба^n0 - выкл.^n1 - вкл.
+GRAB_CVAR_MIN_DISTANCE = Минимальная дистанция на которую можно приближать
+GRAB_CVAR_MAX_DISTANCE = Максимальная дистанция для взятия грабом
+GRAB_CVAR_FORCE = Сила движения игрока грабом
+GRAB_CVAR_LADDER_SUPPORT = Поддержка лестниц: отключать если игрок на лестнице^n0 - выкл.^n1 - вкл.

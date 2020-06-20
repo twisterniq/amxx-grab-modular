@@ -1,0 +1,17 @@
+[en]
+GRAB_HIT_CVAR_ENABLED = Plugin work^n0 - disabed^n1 - enabled
+GRAB_HIT_CVAR_DAMAGE = How much damage to do 
+GRAB_HIT_CVAR_COOLDOWN = Cooldown in seconds before next hit
+GRAB_HIT_CVAR_GIBS = Gibs after kill^n0 - disabled^n1 - enabled
+
+[es]
+GRAB_HIT_CVAR_ENABLED = Habilitar el plugin^n0 - habilitar^n1 - deshabilitar
+GRAB_HIT_CVAR_DAMAGE = Cuánta vida quitar en un golpe
+GRAB_HIT_CVAR_COOLDOWN = Tiempo en segundos antes del siguiente golpe
+GRAB_HIT_CVAR_GIBS = Restos del jugador después de su muerte^n0 - habilitar^n1 - deshabilitar
+
+[ru]
+GRAB_HIT_CVAR_ENABLED = Работа плагина^n0 - выкл.^n1 - вкл.
+GRAB_HIT_CVAR_DAMAGE = Сколько жизней отнимать при одном ударе
+GRAB_HIT_CVAR_COOLDOWN = Задержка перед следующим ударом
+GRAB_HIT_CVAR_GIBS = Кости после смерти^n0 - выкл.^n1 - вкл.

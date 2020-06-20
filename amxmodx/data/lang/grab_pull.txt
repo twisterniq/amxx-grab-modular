@@ -1,0 +1,11 @@
+[en]
+GRAB_PULL_CVAR_ENABLED = Plugin work^n0 - disabed^n1 - enabled
+GRAB_PULL_CVAR_UNITS = How many units to pull
+
+[es]
+GRAB_PULL_CVAR_ENABLED = Habilitar el plugin^n0 - habilitar^n1 - deshabilitar
+GRAB_PULL_CVAR_UNITS = En cuántas unidades acercar
+
+[ru]
+GRAB_PULL_CVAR_ENABLED = Работа плагина^n0 - выкл.^n1 - вкл.
+GRAB_PULL_CVAR_UNITS = На сколько юнитов приближать
