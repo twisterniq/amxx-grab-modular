@@ -1,0 +1,35 @@
+[en]
+GRAB_MENU_FREEZE = Freeze
+GRAB_MENU_FREEZE_UNSET = Unfreeze
+GRAB_MENU_FREEZE_MSG = * ^4%n ^1froze ^3%n ^1with grab
+GRAB_MENU_FREEZE_UNSET_MSG = * ^4%n ^1unfroze ^3%n ^1with grab
+
+GRAB_MENU_FREEZE_CVAR_UNSET_TYPE = Type of unfreeze^n1 - on grabbing^n2 - on selecting item
+GRAB_MENU_FREEZE_CVAR_COLOR_RED = Red color of glow (RGB)
+GRAB_MENU_FREEZE_CVAR_COLOR_GREEN = Green color of glow (RGB)
+GRAB_MENU_FREEZE_CVAR_COLOR_BLUE = Blue color of glow (RGB)
+GRAB_MENU_FREEZE_CVAR_AMOUNT = Glow amount
+
+[es]
+GRAB_MENU_FREEZE = Congelar
+GRAB_MENU_FREEZE_UNSET = Descongelar
+GRAB_MENU_FREEZE_MSG = * ^4%n ^1ha congelado a ^3%n ^1con el grab
+GRAB_MENU_FREEZE_UNSET_MSG = * ^4%n ^1ha descongelado a ^3%n ^1con el grab
+
+GRAB_MENU_FREEZE_CVAR_UNSET_TYPE = Cómo descongelar^n1 - al coger con el grab^n2 - al seleccionar el elemento
+GRAB_MENU_FREEZE_CVAR_COLOR_RED = Color rojo del brillo (RGB)
+GRAB_MENU_FREEZE_CVAR_COLOR_GREEN = Color verde del brillo (RGB)
+GRAB_MENU_FREEZE_CVAR_COLOR_BLUE = Color azul del brillo (RGB)
+GRAB_MENU_FREEZE_CVAR_AMOUNT = El tamaño del brillo
+
+[ru]
+GRAB_MENU_FREEZE = Заморозить
+GRAB_MENU_FREEZE_UNSET = Разморозить
+GRAB_MENU_FREEZE_MSG = * ^4%n ^1заморозил(а) ^3%n ^1грабом
+GRAB_MENU_FREEZE_UNSET_MSG = * ^4%n ^1разморозил(а) ^3%n ^1грабом
+
+GRAB_MENU_FREEZE_CVAR_UNSET_TYPE = Тип разморозки^n1 - при взятии грабом^n2 - при нажатии на пункт
+GRAB_MENU_FREEZE_CVAR_COLOR_RED = Красный цвет свечения (RGB)
+GRAB_MENU_FREEZE_CVAR_COLOR_GREEN = Зелёный цвет свечения (RGB)
+GRAB_MENU_FREEZE_CVAR_COLOR_BLUE = Синий цвет свечения (RGB)
+GRAB_MENU_FREEZE_CVAR_AMOUNT = Размер свечения

@@ -2,195 +2,177 @@
 #include <reapi>
 #include <grab_modular>
 
-#pragma semicolon 1
+public stock const PluginName[] = "Grab: Rendering"
+public stock const PluginVersion[] = "2.0.0"
+public stock const PluginAuthor[] = "twisterniq"
 
-new const PLUGIN_NAME[] = "Grab: Rendering";
-new const PLUGIN_VERSION[] = "1.0.0";
-new const PLUGIN_AUTHOR[] = "w0w";
-
-/****************************************************************************************
-****************************************************************************************/
-
-#define CHECK_PLAYER(%0) \
-    if (!(1 <= %0 <= MaxClients)) \
-        abort(AMX_ERR_NATIVE, "Player out of range (%d)", %0);
-
-enum _:Cvars
+enum _:CVars
 {
-	CVAR_ENABLED
-};
+    CVAR_ENABLED,
+    Float:CVAR_RED,
+    Float:CVAR_GREEN,
+    Float:CVAR_BLUE,
+    Float:CVAR_AMOUNT
+}
 
-new g_eCvar[Cvars];
-
-enum _:RenderData
-{
-	Float:RENDER_COLOR_RED,
-	Float:RENDER_COLOR_GREEN,
-	Float:RENDER_COLOR_BLUE,
-	Float:RENDER_AMOUNT
-};
-
-new Float:g_flRenderCvar[RenderData];
-new Float:g_flPlayerRenderData[MAX_PLAYERS+1][RenderData];
+new g_eCVars[CVars]
 
 public plugin_init()
 {
-	register_plugin(
-		.plugin_name = PLUGIN_NAME,
-		.version = PLUGIN_VERSION,
-		.author = PLUGIN_AUTHOR
-	);
+    register_plugin(PluginName, PluginVersion, PluginAuthor)
+    register_dictionary("grab_rendering.txt")
 
-	register_dictionary("grab_rendering.txt");
-
-	func_RegisterCvars();
+    func_CreateCVars()
 }
 
-func_RegisterCvars()
+func_CreateCVars()
 {
-	new pCvar;
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_rendering_enabled",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_ENABLED"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_eCVars[CVAR_ENABLED]
+    )
 
-	pCvar = create_cvar("grab_rendering_enabled", "1", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_RENDERING_CVAR_ENABLED"), true, 0.0, true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_ENABLED]);
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_rendering_red",
+            .string = "255",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_RENDERING_CVAR_RED"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 255.0
+        ), g_eCVars[CVAR_RED]
+    )
 
-	pCvar = create_cvar("grab_rendering_color_red", "255", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_RENDERING_CVAR_COLOR_RED"), true, 0.0, true, 255.0);
-	bind_pcvar_float(pCvar, g_flRenderCvar[RENDER_COLOR_RED]);
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_rendering_green",
+            .string = "255",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_RENDERING_CVAR_GREEN"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 255.0
+        ), g_eCVars[CVAR_GREEN]
+    )
 
-	pCvar = create_cvar("grab_rendering_color_green", "255", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_RENDERING_CVAR_COLOR_GREEN"), true, 0.0, true, 255.0);
-	bind_pcvar_float(pCvar, g_flRenderCvar[RENDER_COLOR_GREEN]);
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_rendering_blue",
+            .string = "255",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_RENDERING_CVAR_BLUE"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 255.0
+        ), g_eCVars[CVAR_BLUE]
+    )
 
-	pCvar = create_cvar("grab_rendering_color_blue", "255", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_RENDERING_CVAR_COLOR_BLUE"), true, 0.0, true, 255.0);
-	bind_pcvar_float(pCvar, g_flRenderCvar[RENDER_COLOR_BLUE]);
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_rendering_amount",
+            .string = "128",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_RENDERING_CVAR_AMOUNT"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 255.0
+        ), g_eCVars[CVAR_AMOUNT]
+    )
 
-	pCvar = create_cvar("grab_rendering_amount", "128", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_RENDERING_CVAR_AMOUNT"), true, 0.0, true, 255.0);
-	bind_pcvar_float(pCvar, g_flRenderCvar[RENDER_AMOUNT]);
-
-	AutoExecConfig(true, "grab_rendering", "grab_modular");
+    AutoExecConfig(true, "grab_rendering", "grab_modular")
 }
 
-public plugin_natives()
+public grab_on_start(id, iEnt)
 {
-	register_library("grab_rendering");
+    if (!g_eCVars[CVAR_ENABLED])
+    {
+        return
+    }
 
-	register_native("grab_set_player_rendering", "NativeHandle_SetPlayerRendering");
-	register_native("grab_get_player_rendering", "NativeHandle_GetPlayerRendering");
+    new iRenderFx, Float:flRenderColor[3], iRenderMode, Float:flAmount
+    rg_get_rendering(iEnt, iRenderFx, flRenderColor, iRenderMode, flAmount)
+
+    if (
+        iRenderFx == kRenderFxNone
+        && flRenderColor[0] == 0.0
+        && flRenderColor[1] == 0.0
+        && flRenderColor[2] == 0.0
+        && iRenderMode == kRenderNormal
+        && flAmount == 0.0
+    )
+    {
+        rg_set_rendering(
+            iEnt,
+            kRenderFxGlowShell,
+            g_eCVars[CVAR_RED],
+            g_eCVars[CVAR_GREEN],
+            g_eCVars[CVAR_BLUE],
+            kRenderNormal,
+            g_eCVars[CVAR_AMOUNT]
+        )
+    }
 }
 
-public NativeHandle_GetPlayerRendering(iPlugin, iParams)
+public grab_on_finish(id, iEnt)
 {
-	enum { arg_player = 1, arg_color_red, arg_color_green, arg_color_blue, arg_amount };
+    if (!g_eCVars[CVAR_ENABLED])
+    {
+        return
+    }
 
-	new iPlayer = get_param(arg_player);
+    // Entity no longer exists
+    if (!is_entity(iEnt))
+    {
+        return
+    }
 
-	CHECK_PLAYER(iPlayer)
+    new iRenderFx, Float:flRenderColor[3], iRenderMode, Float:flAmount
+    rg_get_rendering(iEnt, iRenderFx, flRenderColor, iRenderMode, flAmount)
 
-	set_float_byref(arg_color_red, g_flPlayerRenderData[iPlayer][RENDER_COLOR_RED]);
-	set_float_byref(arg_color_green, g_flPlayerRenderData[iPlayer][RENDER_COLOR_GREEN]);
-	set_float_byref(arg_color_blue, g_flPlayerRenderData[iPlayer][RENDER_COLOR_BLUE]);
-	set_float_byref(arg_amount, g_flPlayerRenderData[iPlayer][RENDER_AMOUNT]);
+    if (
+        iRenderFx == kRenderFxGlowShell
+        && flRenderColor[0] == g_eCVars[CVAR_RED]
+        && flRenderColor[1] == g_eCVars[CVAR_GREEN]
+        && flRenderColor[2] == g_eCVars[CVAR_BLUE]
+        && iRenderMode == kRenderNormal
+        && flAmount == g_eCVars[CVAR_AMOUNT]
+    )
+    {
+        // Reset rendering
+        rg_set_rendering(iEnt)
+    }
 }
 
-public NativeHandle_SetPlayerRendering(iPlugin, iParams)
+stock rg_get_rendering(id, &iRenderFx = kRenderFxNone, Float:flRenderColor[3] = { 0.0, 0.0, 0.0 }, &iRenderMode = kRenderNormal, &Float:flAmount = 0.0)
 {
-	enum { arg_player = 1, arg_color_red, arg_color_green, arg_color_blue, arg_amount };
-	#pragma unused arg_color_red, arg_color_green, arg_color_blue
-
-	new iPlayer = get_param(arg_player);
-
-	new Float:flData[arg_amount - 1];
-
-	for(new i; i < sizeof flData; i++)
-		flData[i] = get_param_f(i + 2);
-
-	if(iPlayer)
-	{
-		CHECK_PLAYER(iPlayer)
-
-		for(new i; i < sizeof flData; i++)
-			g_flPlayerRenderData[iPlayer][i] = flData[i] != -1.0 ? flData[i] : g_flRenderCvar[i];
-	}
-	else
-	{
-		for(new i = 1; i <= MaxClients; i++)
-		{
-			if(!is_user_connected(i))
-				continue;
-
-			for(new a; a < sizeof flData; a++)
-				g_flPlayerRenderData[i][a] = flData[a] != -1.0 ? flData[a] : g_flRenderCvar[a];
-		}
-	}
-
+    get_entvar(id, var_rendercolor, flRenderColor)
+    iRenderFx = get_entvar(id, var_renderfx)
+    iRenderMode = get_entvar(id, var_rendermode)
+    get_entvar(id, var_renderamt, flAmount)
 }
 
-public client_putinserver(id)
+stock rg_set_rendering(id, iRenderFx = kRenderFxNone, Float:flRed = 0.0, Float:flGreen = 0.0, Float:flBlue = 0.0, iRender = kRenderNormal, Float:flAmount = 0.0)
 {
-	for(new i; i < RenderData; i++)
-		g_flPlayerRenderData[id][i] = g_flRenderCvar[i];
-}
+    new Float:flRenderColor[3]
+    flRenderColor[0] = flRed
+    flRenderColor[1] = flGreen
+    flRenderColor[2] = flBlue
 
-public grab_on_start(id, iEntity)
-{
-	if(!g_eCvar[CVAR_ENABLED])
-		return;
-
-	UTIL_SetRendering(iEntity,
-		kRenderFxGlowShell,
-		g_flPlayerRenderData[id][RENDER_COLOR_RED],
-		g_flPlayerRenderData[id][RENDER_COLOR_GREEN],
-		g_flPlayerRenderData[id][RENDER_COLOR_BLUE],
-		kRenderNormal,
-		g_flPlayerRenderData[id][RENDER_AMOUNT]);
-}
-
-public grab_on_finish(id, iEntity)
-{
-	if(!g_eCvar[CVAR_ENABLED])
-		return;
-
-	new iRenderFx, Float:flRenderColor[3], iRender, Float:flAmount;
-	UTIL_GetRendering(iEntity, iRenderFx, flRenderColor[0], flRenderColor[1], flRenderColor[2], iRender, flAmount);
-
-	if(
-		iRenderFx == kRenderFxGlowShell
-		&& g_flPlayerRenderData[id][RENDER_COLOR_RED] == flRenderColor[0]
-		&& g_flPlayerRenderData[id][RENDER_COLOR_GREEN] == flRenderColor[1]
-		&& g_flPlayerRenderData[id][RENDER_COLOR_BLUE] == flRenderColor[2]
-		&& iRender == kRenderNormal
-		&& g_flPlayerRenderData[id][RENDER_AMOUNT] == flAmount
-	)
-	{
-		UTIL_SetRendering(iEntity);
-	}
-}
-
-/****************************************************************************************
-****************************************************************************************/
-
-stock UTIL_SetRendering(iEnt, iRenderFx = kRenderFxNone, Float:flRed = 0.0, Float:flGreen = 0.0, Float:flBlue = 0.0, iRender = kRenderNormal, Float:flAmount = 0.0)
-{
-	new Float:flRenderColor[3];
-	flRenderColor[0] = flRed;
-	flRenderColor[1] = flGreen;
-	flRenderColor[2] = flBlue;
-
-	set_entvar(iEnt, var_renderfx, iRenderFx);
-	set_entvar(iEnt, var_rendercolor, flRenderColor);
-	set_entvar(iEnt, var_rendermode, iRender);
-	set_entvar(iEnt, var_renderamt, flAmount);
-}
-
-stock UTIL_GetRendering(id, &iRenderFx = kRenderFxNone, &Float:flRed = 0.0, &Float:flGreen = 0.0, &Float:flBlue = 0.0, &iRender = kRenderNormal, &Float:flAmount = 0.0)
-{
-	new Float:flRenderColor[3];
-	get_entvar(id, var_rendercolor, flRenderColor);
-
-	iRenderFx = get_entvar(id, var_renderfx);
-
-	flRed = flRenderColor[0];
-	flGreen = flRenderColor[1];
-	flBlue = flRenderColor[2];
-
-	iRender = get_entvar(id, var_rendermode);
-	flAmount = Float:get_entvar(id, var_renderamt);
+    set_entvar(id, var_renderfx, iRenderFx)
+    set_entvar(id, var_rendercolor, flRenderColor)
+    set_entvar(id, var_rendermode, iRender)
+    set_entvar(id, var_renderamt, flAmount)
 }

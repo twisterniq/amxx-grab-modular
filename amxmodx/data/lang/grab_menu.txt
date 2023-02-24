@@ -1,0 +1,35 @@
+[en]
+GRAB_MENU_CVAR_CLOSE = Close menu if there is one opened^n0 - disabled^n1 - enabled
+GRAB_MENU_CVAR_GRABBER_TEAM = Show item only if grabber is in that team^na - T^nb - CT^nc - SPECTATOR
+GRAB_MENU_CVAR_GRABBED_TEAM = Show item only if target is in that team^na - T^nb - CT^nc - SPECTATOR^nd - object (non-player entity)
+GRAB_MENU_CVAR_ACCESS = Access to item^nIf it's not specified, access to +grab command is used
+
+GRAB_MENU_TITLE_PLAYER = You're grabbing \r%n
+GRAB_MENU_TITLE_ENT = You're grabbing an \robject
+GRAB_MENU_NEXT = Next
+GRAB_MENU_BACK = Back
+GRAB_MENU_EXIT = Exit
+
+[es]
+GRAB_MENU_CVAR_CLOSE = Cerrar otro menú si hay alguno abierto^n0 - deshabilitar^n1 - habilitar
+GRAB_MENU_CVAR_GRABBER_TEAM = Mostrar el elemento si el que sujeta es de este equipo^na - T^nb - CT^nc - SPECTATOR
+GRAB_MENU_CVAR_GRABBED_TEAM = Mostrar el elemento si al que se sujeta es de este eqipo^n1 - T^n2 - CT^n3 - SPECTATOR^n4 - objeto (entidad que no es jugador)
+GRAB_MENU_CVAR_ACCESS = Acceso al elemento^nSi no está indicado se usa el acceso del comando +grab
+
+GRAB_MENU_TITLE_PLAYER = Estás sujetando a \r%n
+GRAB_MENU_TITLE_ENT = Estás sujetando un \robjeto
+GRAB_MENU_NEXT = Más
+GRAB_MENU_BACK = Atrás
+GRAB_MENU_EXIT = Salir
+
+[ru]
+GRAB_MENU_CVAR_CLOSE = Закрывать меню если открыто какое-либо меню^n0 - выкл.^n1 - вкл.
+GRAB_MENU_CVAR_GRABBER_TEAM = Показывать пункт, если кто держит грабом - в этой команде^na - T^nb - CT^nc - SPECTATOR
+GRAB_MENU_CVAR_GRABBED_TEAM = Показывать пункт, если цель - в этой команде^n1 - T^n2 - CT^n3 - SPECTATOR^n4 - объект (сущность, не являющаяся игроком)
+GRAB_MENU_CVAR_ACCESS = Доступ к пункту^nЕсли не указано то используется доступ к команде +grab
+
+GRAB_MENU_TITLE_PLAYER = Вы держите грабом \r%n
+GRAB_MENU_TITLE_ENT = Вы держите грабом \rобъект
+GRAB_MENU_NEXT = Далее
+GRAB_MENU_BACK = Назад
+GRAB_MENU_EXIT = Выход

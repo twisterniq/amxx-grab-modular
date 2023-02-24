@@ -1,0 +1,11 @@
+[en]
+GRAB_MENU_DISARM = Disarm
+GRAB_MENU_DISARM_MSG = * ^4%n ^1disarmed ^3%n ^1with grab
+
+[es]
+GRAB_MENU_DISARM = Desarmar
+GRAB_MENU_DISARM_MSG = * ^4%n ^1ha desarmado a ^3%n ^1con el grab
+
+[ru]
+GRAB_MENU_DISARM = Обезоружить
+GRAB_MENU_DISARM_MSG = * ^4%n ^1обезоружил(а) ^3%n ^1грабом

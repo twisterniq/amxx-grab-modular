@@ -1,0 +1,8 @@
+[en]
+GRAB_MENU_RESTART_ENT = Restart ent
+
+[es]
+GRAB_MENU_RESTART_ENT = Reiniciar entidad
+
+[ru]
+GRAB_MENU_RESTART_ENT = Восстановить объект

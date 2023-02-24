@@ -1,0 +1,11 @@
+[en]
+GRAB_MENU_PUSH = Push
+GRAB_MENU_PUSH_CVAR_UNITS = How many units push the player or the weapon
+
+[es]
+GRAB_MENU_PUSH = Alejar
+GRAB_MENU_PUSH_CVAR_UNITS = Unidades de distancia con las que el jugador o el arma será alejado
+
+[ru]
+GRAB_MENU_PUSH = Отдалить
+GRAB_MENU_PUSH_CVAR_UNITS = На сколько юнитов отдалять оружие или игрока

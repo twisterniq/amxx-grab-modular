@@ -1,11 +1,17 @@
 [en]
-GRAB_PULL_CVAR_ENABLED = Plugin work^n0 - disabed^n1 - enabled
-GRAB_PULL_CVAR_UNITS = How many units to pull
+GRAB_PULL_CVAR_CMD = Pull using command^n0- disabled^n1 - enabled
+GRAB_PULL_CVAR_MOUSE = Pull holding right mouse click^n0- disabled^n1 - enabled
+GRAB_PULL_CVAR_UNITS_PLAYER = How many units to pull players
+GRAB_PULL_CVAR_UNITS_NO_PLAYER = How many units to pull any other entity
 
 [es]
-GRAB_PULL_CVAR_ENABLED = Habilitar el plugin^n0 - habilitar^n1 - deshabilitar
-GRAB_PULL_CVAR_UNITS = En cuántas unidades acercar
+GRAB_PULL_CVAR_CMD = Acercar usando un comando^n0- deshabilitar^n1 - habilitar
+GRAB_PULL_CVAR_MOUSE = Acercar manteniendo el clic derecho del ratón^n0- deshabilitar^n1 - habilitar
+GRAB_PULL_CVAR_UNITS_PLAYER = En cuántas unidades acercar a los jugadores
+GRAB_PULL_CVAR_UNITS_NO_PLAYER = En cuántas unidades acercar a cualquier otra entidad
 
 [ru]
-GRAB_PULL_CVAR_ENABLED = Работа плагина^n0 - выкл.^n1 - вкл.
-GRAB_PULL_CVAR_UNITS = На сколько юнитов приближать
+GRAB_PULL_CVAR_CMD = Возможность приближать с помощью команды^n0- выкл.^n1 - вкл.
+GRAB_PULL_CVAR_MOUSE = Возможность приближать с помощью ПКМ^n0- выкл.^n1 - вкл.
+GRAB_PULL_CVAR_UNITS_PLAYER = На сколько юнитов приближать игроков
+GRAB_PULL_CVAR_UNITS_NO_PLAYER = На сколько юнитов приближать любые другие сущности

@@ -1,498 +1,600 @@
 #include <amxmodx>
-#include <amxmisc>
 #include <fakemeta>
 #include <reapi>
+#include <xs>
 
-#pragma semicolon 1
+public stock const PluginName[] = "Grab Modular"
+public stock const PluginVersion[] = "2.0.0"
+public stock const PluginAuthor[] = "twisterniq"
 
-new const PLUGIN_NAME[] = "Grab Modular";
-new const PLUGIN_VERSION[] = "1.0.2";
-new const PLUGIN_AUTHOR[] = "w0w";
+/****************************************************************************************
+****************************************************************************************/
+
+// Entities with one of that classnames will be allowed to be grabbed
+new const VALID_CLASSNAMES[][] =
+{
+    "weaponbox",
+    "armoury_entity",
+    // "func_vehicle"
+}
+
+// Interval between checks when player tries to grab something or someone
+//
+// There is no need to change it unless you want a faster response,
+// but keep in mind that the lower the cooldown between checks, the greater the load
+const Float:CHECK_TIME = 0.2
 
 /****************************************************************************************
 ****************************************************************************************/
 
 #define is_user_valid(%0) (1 <= %0 <= MaxClients)
 
-#define CHECK_PLAYER(%0) \
+#define CHECK_NATIVE_PLAYER(%0,%1) \
     if (!is_user_valid(%0)) \
-        abort(AMX_ERR_NATIVE, "Player out of range (%d)", %0);
-
-const GRAB_ENABLED = -1;
+    { \
+        log_error(AMX_ERR_NATIVE, "Player out of range (%d).", %0); \
+        return %1; \
+    }
 
 enum _:Forwards
 {
-	FORWARD_ON_USE_COMMAND,
-	FORWARD_ON_START,
-	FORWARD_ON_FINISH,
-	FORWARD_ON_GRABBING
-};
+    FWD_ON_START,
+    FWD_ON_FINISH,
+    FWD_ON_GRABBING,
+    FWD_ACCESS_MODIFIED
+}
 
-new g_iForward[Forwards];
-
-enum _:GrabData
+enum _:CVars
 {
-	GRABBER,
-	GRABBED,
-	Float:GRAB_DISTANCE
-};
+    CVAR_ENABLED,
+    CVAR_PLAYERS_ONLY,
+    Float:CVAR_MIN_DISTANCE,
+    Float:CVAR_MAX_DISTANCE,
+    Float:CVAR_FORCE,
+    CVAR_LADDER_SUPPORT
+}
 
-new g_ePlayerGrabData[MAX_PLAYERS+1][GrabData];
-
-enum _:Cvars
+enum _:GrabStruct
 {
-	CVAR_ENABLED,
-	Float:CVAR_MIN_DISTANCE,
-	CVAR_MAX_DISTANCE,
-	CVAR_FORCE,
-	CVAR_LADDER_SUPPORT
-};
+    bool:SEARCHING,
+    GRABBER,
+    GRABBED,
+    Float:GRAB_DISTANCE,
+    ACCESS_LEVEL
+}
 
-new g_eCvar[Cvars];
+new g_hForwards[Forwards]
+new g_eCVars[CVars]
+new g_eGrabData[MAX_PLAYERS + 1][GrabStruct]
 
-new g_iCommandId;
-new bool:g_bHasGrabAccess[MAX_PLAYERS+1];
+new Trie:g_tValidClassNames
 
 public plugin_init()
 {
-	register_plugin(
-		.plugin_name = PLUGIN_NAME,
-		.version = PLUGIN_VERSION,
-		.author = PLUGIN_AUTHOR
-	);
+    register_plugin(PluginName, PluginVersion, PluginAuthor)
+    register_dictionary("grab_modular.txt")
 
-	register_dictionary("grab_modular.txt");
+    register_clcmd("+grab", "clcmd_GrabEnable")
+    register_clcmd("-grab", "clcmd_GrabDisable")
 
-	g_iCommandId = register_clcmd("+grab", "func_ClCmdGrabEnable", ADMIN_LEVEL_C);
-	register_clcmd("-grab", "func_GrabDisable");
+    g_tValidClassNames = TrieCreate()
 
-	g_iForward[FORWARD_ON_USE_COMMAND] = CreateMultiForward("grab_on_use_command", ET_STOP, FP_CELL);
-	g_iForward[FORWARD_ON_START] = CreateMultiForward("grab_on_start", ET_STOP, FP_CELL, FP_CELL);
-	g_iForward[FORWARD_ON_FINISH] = CreateMultiForward("grab_on_finish", ET_IGNORE, FP_CELL, FP_CELL);
-	g_iForward[FORWARD_ON_GRABBING] = CreateMultiForward("grab_on_grabbing", ET_STOP, FP_CELL, FP_CELL);
+    for (new i; i < sizeof VALID_CLASSNAMES; i++)
+    {
+        TrieSetCell(g_tValidClassNames, VALID_CLASSNAMES[i], 1)
+    }
 
-	RegisterHookChain(RH_SV_DropClient, "refwd_DropClient_Post", true);
-	register_forward(FM_CmdStart, "fmfwd_CmdStart_Post", true);
+    g_hForwards[FWD_ON_START] = CreateMultiForward("grab_on_start", ET_IGNORE, FP_CELL, FP_CELL)
+    g_hForwards[FWD_ON_FINISH] = CreateMultiForward("grab_on_finish", ET_IGNORE, FP_CELL, FP_CELL)
+    g_hForwards[FWD_ON_GRABBING] = CreateMultiForward("grab_on_grabbing", ET_IGNORE, FP_CELL, FP_CELL)
+    g_hForwards[FWD_ACCESS_MODIFIED] = CreateMultiForward("grab_access_modified", ET_IGNORE, FP_CELL, FP_CELL, FP_CELL)
 
-	func_RegisterCvars();
+    register_forward(FM_CmdStart, "CmdStart_Post", true)
+
+    func_CreateCVars()
 }
 
-func_RegisterCvars()
+func_CreateCVars()
 {
-	new pCvar;
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_enabled",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_ENABLED"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_eCVars[CVAR_ENABLED]
+    )
 
-	pCvar = create_cvar("grab_enabled", "1", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_CVAR_ENABLED"), true, 0.0, true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_ENABLED]);
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_players_only",
+            .string = "0",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_PLAYERS_ONLY"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_eCVars[CVAR_PLAYERS_ONLY]
+    )
 
-	pCvar = create_cvar("grab_min_distance", "90.0", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_CVAR_MIN_DISTANCE"), true, 1.0);
-	bind_pcvar_float(pCvar, g_eCvar[CVAR_MIN_DISTANCE]);
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_min_distance",
+            .string = "90",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_MIN_DISTANCE"),
+            .has_min = true,
+            .min_val = 1.0
+        ), g_eCVars[CVAR_MIN_DISTANCE]
+    )
 
-	pCvar = create_cvar("grab_max_distance", "2000", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_CVAR_MAX_DISTANCE"), true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_MAX_DISTANCE]);
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_max_distance",
+            .string = "2000",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_MAX_DISTANCE"),
+            .has_min = true,
+            .min_val = 1.0
+        ), g_eCVars[CVAR_MAX_DISTANCE]
+    )
 
-	pCvar = create_cvar("grab_force", "8", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_CVAR_FORCE"), true, 0.1);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_FORCE]);
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_force",
+            .string = "8.0",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_FORCE"),
+            .has_min = true,
+            .min_val = 0.1
+        ), g_eCVars[CVAR_FORCE]
+    )
 
-	pCvar = create_cvar("grab_ladder_support", "1", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_CVAR_LADDER_SUPPORT"), true, 0.0, true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_LADDER_SUPPORT]);
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_ladder_support",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_LADDER_SUPPORT"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_eCVars[CVAR_LADDER_SUPPORT]
+    )
 
-	AutoExecConfig(true, "grab_modular", "grab_modular");
+    AutoExecConfig(true, "grab_modular", "grab_modular")
 }
 
 public plugin_natives()
 {
-	register_library("grab_modular");
+    register_native("grab_get_grabber", "native_grab_get_grabber")
+    register_native("grab_get_grabbed", "native_grab_get_grabbed")
+    register_native("grab_get_distance", "native_grab_get_distance")
+    register_native("grab_set_distance", "native_grab_set_distance")
+    register_native("grab_disable", "native_grab_disable")
 
-	register_native("is_entity_grabbed", "NativeHandle_IsEntityGrabbed");
-	register_native("is_player_grabbing", "NativeHandle_IsPlayerGrabbing");
-
-	register_native("grab_has_player_access", "NativeHandle_HasPlayerAccess");
-	register_native("grab_set_player_access", "NativeHandle_SetPlayerAccess");
-
-	register_native("grab_get_distance", "NativeHandle_GetDistance");
-	register_native("grab_set_distance", "NativeHandle_SetDistance");
-
-	register_native("grab_disable", "NativeHandle_GrabDisable");
+    register_native("grab_get_user_access", "native_grab_get_user_access")
+    register_native("grab_set_user_access", "native_grab_set_user_access")
 }
 
-public NativeHandle_IsEntityGrabbed(iPlugin, iParams)
+public native_grab_get_grabber()
 {
-	enum { arg_entity = 1 };
+    enum { arg_entity = 1 }
 
-	return func_GetEntityGrabber(get_param(arg_entity));
+    new iEnt = get_param(arg_entity)
+
+    for (new i = 1; i <= MaxClients; i++)
+    {
+        if (g_eGrabData[i][GRABBED] == iEnt)
+        {
+            return i
+        }
+    }
+
+    return 0
 }
 
-public NativeHandle_IsPlayerGrabbing(iPlugin, iParams)
+public native_grab_get_grabbed()
 {
-	enum { arg_player = 1 };
+    enum { arg_player = 1 }
 
-	new iPlayer = get_param(arg_player);
+    new id = get_param(arg_player)
+    CHECK_NATIVE_PLAYER(id, 0)
 
-	CHECK_PLAYER(iPlayer)
-
-	if(g_ePlayerGrabData[iPlayer][GRABBED] == GRAB_ENABLED)
-		return 0;
-
-	return g_ePlayerGrabData[iPlayer][GRABBED];
+    return g_eGrabData[id][GRABBED]
 }
 
-public bool:NativeHandle_HasPlayerAccess(iPlugin, iParams)
+public native_grab_get_user_access()
 {
-	enum { arg_player = 1, arg_custom };
+    enum { arg_player = 1 }
 
-	new iPlayer = get_param(arg_player);
+    new id = get_param(arg_player)
+    CHECK_NATIVE_PLAYER(id, false)
 
-	CHECK_PLAYER(iPlayer)
-
-	new bool:bCustom = bool:get_param(arg_custom);
-
-	if(!bCustom)
-		return (cmd_access2(iPlayer, g_iCommandId) || g_bHasGrabAccess[iPlayer]);
-	else
-		return g_bHasGrabAccess[iPlayer];
+    return g_eGrabData[id][ACCESS_LEVEL]
 }
 
-public NativeHandle_SetPlayerAccess(iPlugin, iParams)
+public bool:native_grab_set_user_access()
 {
-	enum { arg_player = 1, arg_set };
+    enum { arg_player = 1, arg_level }
 
-	new iPlayer = get_param(arg_player);
-	new bool:bSet = bool:get_param(arg_set);
+    new id = get_param(arg_player)
+    new iNewLevel = get_param(arg_level)
+    new iOldLevel
 
-	if(iPlayer)
-	{
-		CHECK_PLAYER(iPlayer)
+    if (id)
+    {
+        CHECK_NATIVE_PLAYER(id, false)
 
-		g_bHasGrabAccess[iPlayer] = bSet;
-	}
-	else
-	{
-		for(new i = 1; i <= MaxClients; i++)
-		{
-			if(!is_user_connected(i))
-				continue;
+        iOldLevel = g_eGrabData[id][ACCESS_LEVEL]
+        g_eGrabData[id][ACCESS_LEVEL] = iNewLevel
 
-			g_bHasGrabAccess[i] = bSet;
-		}
-	}
+        ExecuteForward(g_hForwards[FWD_ACCESS_MODIFIED], _, id, iOldLevel, iNewLevel)
+    }
+    else
+    {
+        for (new i = 1; i <= MaxClients; i++)
+        {
+            if (!is_user_connected(i))
+            {
+                continue
+            }
+
+            iOldLevel = g_eGrabData[i][ACCESS_LEVEL]
+            g_eGrabData[i][ACCESS_LEVEL] = iNewLevel
+
+            ExecuteForward(g_hForwards[FWD_ACCESS_MODIFIED], _, i, iOldLevel, iNewLevel)
+        }
+    }
+
+    return true
 }
 
-public Float:NativeHandle_GetDistance(iPlugin, iParams)
+public Float:native_grab_get_distance()
 {
-	enum { arg_player = 1, arg_entity };
+    enum { arg_player = 1 }
 
-	new iPlayer = get_param(arg_player);
+    new id = get_param(arg_player)
+    CHECK_NATIVE_PLAYER(id, 0.0)
 
-	CHECK_PLAYER(iPlayer)
-
-	new iEntity = get_param(arg_entity);
-
-	if(g_ePlayerGrabData[iPlayer][GRABBED] != iEntity)
-		return 0.0;
-
-	return g_ePlayerGrabData[iPlayer][GRAB_DISTANCE];
+    return g_eGrabData[id][GRAB_DISTANCE]
 }
 
-public bool:NativeHandle_SetDistance(iPlugin, iParams)
+public bool:native_grab_set_distance()
 {
-	enum { arg_player = 1, arg_entity, arg_distance };
+    enum { arg_player = 1, arg_distance }
 
-	new iPlayer = get_param(arg_player);
+    new id = get_param(arg_player)
+    CHECK_NATIVE_PLAYER(id, false)
 
-	CHECK_PLAYER(iPlayer)
+    if (!g_eGrabData[id][GRABBED])
+    {
+        return false
+    }
 
-	new iEntity = get_param(arg_entity);
+    g_eGrabData[id][GRAB_DISTANCE] = floatclamp(
+        get_param_f(arg_distance),
+        g_eCVars[CVAR_MIN_DISTANCE],
+        g_eCVars[CVAR_MAX_DISTANCE]
+    )
 
-	if(g_ePlayerGrabData[iPlayer][GRABBED] != iEntity)
-		return false;
-
-	if(g_ePlayerGrabData[iPlayer][GRAB_DISTANCE] == g_eCvar[CVAR_MIN_DISTANCE])
-		return false;
-
-	new Float:flDistance = get_param_f(arg_distance);
-
-	g_ePlayerGrabData[iPlayer][GRAB_DISTANCE] = floatclamp(flDistance, g_eCvar[CVAR_MIN_DISTANCE], float(g_eCvar[CVAR_MAX_DISTANCE]));
-
-	return true;
+    return true
 }
 
-public bool:NativeHandle_GrabDisable(iPlugin, iParams)
+public bool:native_grab_disable()
 {
-	enum { arg_player = 1 };
+    enum { arg_player = 1 }
 
-	new iPlayer = get_param(arg_player);
+    new id = get_param(arg_player)
 
-	if(iPlayer)
-	{
-		CHECK_PLAYER(iPlayer)
+    if (id)
+    {
+        CHECK_NATIVE_PLAYER(id, false)
+        func_GrabDisable(id)
+    }
+    else
+    {
+        for (new i = 1; i <= MaxClients; i++)
+        {
+            func_GrabDisable(i)
+        }
+    }
 
-		if(!g_ePlayerGrabData[iPlayer][GRABBED])
-			return false;
-
-		func_GrabDisable(iPlayer);
-	}
-	else
-	{
-		new iCount;
-
-		for(new i = 1; i <= MaxClients; i++)
-		{
-			if(!g_ePlayerGrabData[i][GRABBED])
-				continue;
-
-			func_GrabDisable(i);
-			iCount++;
-		}
-
-		if(!iCount)
-			return false;
-	}
-
-	return true;
+    return true
 }
 
-public func_ClCmdGrabEnable(const id, iAccess, iCommand)
+public client_disconnected(id)
 {
-	if(!cmd_access(id, iAccess, iCommand, 0) && !g_bHasGrabAccess[id])
-		return PLUGIN_HANDLED;
+    new iGrabber = g_eGrabData[id][GRABBER]
 
-	new iResult;
-	ExecuteForward(g_iForward[FORWARD_ON_USE_COMMAND], iResult, id);
+    if (iGrabber)
+    {
+        // Disable grab if the disconnected player was being grabbed
+        func_GrabDisable(iGrabber)
+    }
 
-	if(iResult >= PLUGIN_HANDLED)
-		return PLUGIN_HANDLED;
-
-	if(!g_ePlayerGrabData[id][GRABBED])
-		g_ePlayerGrabData[id][GRABBED] = GRAB_ENABLED;
-
-	return PLUGIN_HANDLED;
+    arrayset(g_eGrabData[id], 0, GrabStruct)
 }
 
-public func_GrabDisable(const id)
+
+public clcmd_GrabEnable(const id)
 {
-	if(!g_ePlayerGrabData[id][GRABBED])
-		return PLUGIN_HANDLED;
+    if (!g_eGrabData[id][ACCESS_LEVEL])
+    {
+        return PLUGIN_HANDLED
+    }
 
-	new iTarget = g_ePlayerGrabData[id][GRABBED];
-
-	if(is_user_valid(iTarget))
-	{
-		g_ePlayerGrabData[iTarget][GRABBER] = 0;
-
-		if(g_eCvar[CVAR_LADDER_SUPPORT])
-			func_SetClimbAbility(iTarget, true);
-	}
-
-	if(iTarget > 0)
-		ExecuteForward(g_iForward[FORWARD_ON_FINISH], _, id, iTarget);
-
-	g_ePlayerGrabData[id][GRABBED] = 0;
-	g_ePlayerGrabData[id][GRAB_DISTANCE] = 0.0;
-
-	return PLUGIN_HANDLED;
+    g_eGrabData[id][SEARCHING] = true
+    return PLUGIN_HANDLED
 }
 
-public refwd_DropClient_Post(const id)
+public clcmd_GrabDisable(const id)
 {
-	if(g_ePlayerGrabData[id][GRABBER])
-	{
-		for(new i = 1; i <= MaxClients; i++)
-		{
-			if(g_ePlayerGrabData[i][GRABBED] == id)
-			{
-				func_GrabDisable(i);
-				break;
-			}
-		}
-	}
-
-	arrayset(g_ePlayerGrabData[id], 0, sizeof g_ePlayerGrabData[]);
-
-	g_bHasGrabAccess[id] = false;
+    func_GrabDisable(id)
+    return PLUGIN_HANDLED
 }
 
-public fmfwd_CmdStart_Post(const id, iHandle)
+func_GrabDisable(const id)
 {
-	static iTarget;
+    g_eGrabData[id][SEARCHING] = false
 
-	if(g_ePlayerGrabData[id][GRABBED] == GRAB_ENABLED)
-	{
-		new Float:flResult[3];
-		flResult = UTIL_VelocityByAim(id, float(g_eCvar[CVAR_MAX_DISTANCE]));
+    if (!g_eGrabData[id][GRABBED])
+    {
+        return PLUGIN_HANDLED
+    }
 
-		new Float:flOrigin[3];
-		UTIL_GetViewPosition(id, flOrigin);
+    new iTarget = g_eGrabData[id][GRABBED]
+    ExecuteForward(g_hForwards[FWD_ON_FINISH], _, id, iTarget)
 
-		flResult[0] += flOrigin[0];
-		flResult[1] += flOrigin[1];
-		flResult[2] += flOrigin[2];
+    // Is target a player?
+    if (is_user_valid(iTarget))
+    {
+        // Entity is no longer grabbed by anyone
+        g_eGrabData[iTarget][GRABBER] = 0
 
-		iTarget = UTIL_GetTargetByTraceLine(flOrigin, flResult, id, flResult);
+        if (g_eCVars[CVAR_LADDER_SUPPORT])
+        {
+            // Player can now use ladders again
+            func_SetClimbAbility(iTarget, true)
+        }
+    }
 
-		if(is_user_valid(iTarget))
-		{
-			if(func_IsEntityGrabbed(iTarget))
-			{
-				func_GrabDisable(id);
-				return;
-			}
+    // Player is no longer grabbing anything
+    g_eGrabData[id][GRABBED] = 0
+    g_eGrabData[id][GRAB_DISTANCE] = 0.0
 
-			func_SetEntityGrabbed(id, iTarget);
-		}
-		else
-		{
-			new iMoveType;
-
-			if(iTarget > 0 && is_entity(iTarget))
-			{
-				iMoveType = get_entvar(iTarget, var_movetype);
-
-				if(!(iMoveType == MOVETYPE_WALK || iMoveType == MOVETYPE_STEP || iMoveType == MOVETYPE_TOSS || iMoveType == MOVETYPE_BOUNCE))
-					return;
-			}
-			else
-			{
-				iTarget = 0;
-
-				const Float:flRadius = 5.0;
-
-				new iEnt = engfunc(EngFunc_FindEntityInSphere, -1, flResult, flRadius);
-
-				while(!iTarget && iEnt > 0)
-				{
-					iMoveType = get_entvar(iEnt, var_movetype);
-
-					if(iEnt != id && (iMoveType == MOVETYPE_WALK || iMoveType == MOVETYPE_STEP || iMoveType == MOVETYPE_TOSS || iMoveType == MOVETYPE_BOUNCE))
-						iTarget = iEnt;
-
-					iEnt = engfunc(EngFunc_FindEntityInSphere, iEnt, flResult, flRadius);
-				}
-			}
-
-			if(iTarget)
-			{
-				if(!is_entity(iTarget) || func_IsEntityGrabbed(iTarget))
-					return;
-
-				func_SetEntityGrabbed(id, iTarget);
-			}
-		}
-
-		return;
-	}
-
-	iTarget = g_ePlayerGrabData[id][GRABBED];
-
-	if(iTarget > 0)
-	{
-		if(!pev_valid(iTarget) || Float:get_entvar(iTarget, var_max_health) && (Float:get_entvar(iTarget, var_health) < 1.0))
-		{
-			func_GrabDisable(id);
-			return;
-		}
-
-		if(iTarget > MaxClients)
-			func_GrabThink(id);
-	}
-
-	iTarget = g_ePlayerGrabData[id][GRABBER];
-
-	if(iTarget > 0)
-		func_GrabThink(iTarget);
+    return PLUGIN_HANDLED
 }
 
-func_GetEntityGrabber(iEntity)
+public CmdStart_Post(const id, iHandle)
 {
-	for(new i = 1; i <= MaxClients; i++)
-	{
-		if(g_ePlayerGrabData[i][GRABBED] == iEntity)
-			return i;
-	}
+    static iEnt
 
-	return 0;
+    if (g_eGrabData[id][SEARCHING])
+    {
+        static Float:flTime[MAX_PLAYERS + 1]
+        static Float:flGameTime
+
+        flGameTime = get_gametime()
+
+        // Prevent too many checkings
+        if (flTime[id] < flGameTime)
+        {
+            static Float:flResult[3]
+            velocity_by_aim(id, floatround(g_eCVars[CVAR_MAX_DISTANCE]), flResult)
+
+            static Float:flOrigin[3]
+            UTIL_GetViewPosition(id, flOrigin)
+
+            flResult[0] += flOrigin[0]
+            flResult[1] += flOrigin[1]
+            flResult[2] += flOrigin[2]
+
+            // Find a target
+            iEnt = UTIL_GetTargetByTraceLine(flOrigin, flResult, id, flResult)
+
+            func_TryGrabEnt(id, iEnt, flResult)
+            flTime[id] = flGameTime + CHECK_TIME
+        }
+    }
+    else
+    {
+        iEnt = g_eGrabData[id][GRABBER]
+        
+        if (is_user_valid(iEnt))
+        {
+            func_GrabThink(iEnt)
+        }
+
+        iEnt = g_eGrabData[id][GRABBED]
+
+        if (iEnt && !is_user_valid(iEnt))
+        {
+            func_GrabThink(id)
+        }
+    }
 }
 
-bool:func_IsEntityGrabbed(iEntity)
+bool:func_TryGrabEnt(const id, iTarget, Float:flOrigin[3])
 {
-	for(new i = 1; i <= MaxClients; i++)
-	{
-		if(g_ePlayerGrabData[i][GRABBED] == iEntity)
-			return true;
-	}
+    // Is target a player?
+    if (is_user_valid(iTarget))
+    {
+        if (func_IsEntityGrabbed(iTarget))
+        {
+            // Target is already being grabbed, stop
+            return false
+        }
+    }
+    // Is it allowed to grab a non-player entity?
+    else if (!g_eCVars[CVAR_PLAYERS_ONLY])
+    {
+        // Not a valid entity, let's try find it in sphere
+        if (is_nullent(iTarget))
+        {
+            iTarget = NULLENT
 
-	return false;
+            do
+            {
+                iTarget = engfunc(EngFunc_FindEntityInSphere, iTarget, flOrigin, 12.0)
+            } while (iTarget && iTarget == id)
+        }
+
+        if (is_nullent(iTarget))
+        {
+            // Not a valid entity, stop
+            return false
+        }
+
+        if (!func_IsClassNameValid(iTarget))
+        {
+            // Not a valid classname, stop
+            return false
+        }
+
+        if (func_IsEntityGrabbed(iTarget))
+        {
+            // It is already being grabbed, stop
+            return false
+        }
+    }
+    else
+    {
+        return false
+    }
+
+    // Target is not being grabbed, start grabbing it
+    func_StartGrabbing(id, iTarget)
+    return true
 }
 
-func_SetEntityGrabbed(id, iTarget)
+bool:func_IsEntityGrabbed(const iEnt)
 {
-	g_ePlayerGrabData[id][GRABBED] = iTarget;
+    for (new i = 1; i <= MaxClients; i++)
+    {
+        if (g_eGrabData[i][GRABBED] == iEnt)
+        {
+            return true
+        }
+    }
 
-	new iResult;
-	ExecuteForward(g_iForward[FORWARD_ON_START], iResult, id, iTarget);
-
-	if(iResult >= PLUGIN_HANDLED)
-	{
-		func_GrabDisable(id);
-		return;
-	}
-
-	new bool:bPlayer = is_user_valid(iTarget);
-
-	if(bPlayer)
-	{
-		g_ePlayerGrabData[iTarget][GRABBER] = id;
-
-		if(g_eCvar[CVAR_LADDER_SUPPORT])
-			func_SetClimbAbility(iTarget, false);
-	}
-
-	new Float:flOrigin[3];
-	get_entvar(id, var_origin, flOrigin);
-
-	new Float:flTargetOrigin[3];
-	get_entvar(iTarget, var_origin, flTargetOrigin);
-
-	g_ePlayerGrabData[id][GRAB_DISTANCE] = get_distance_f(flOrigin, flTargetOrigin);
-
-	if(g_ePlayerGrabData[id][GRAB_DISTANCE] < g_eCvar[CVAR_MIN_DISTANCE])
-		g_ePlayerGrabData[id][GRAB_DISTANCE] = g_eCvar[CVAR_MIN_DISTANCE];
+    return false
 }
 
-func_GrabThink(id)
+bool:func_IsClassNameValid(const iEnt)
 {
-	new iTarget = g_ePlayerGrabData[id][GRABBED];
+    static szClassName[32]
+    get_entvar(iEnt, var_classname, szClassName, charsmax(szClassName))
 
-	if(is_user_valid(iTarget) && !is_user_alive(iTarget) || !is_user_valid(iTarget) && !is_entity(iTarget))
-	{
-		func_GrabDisable(id);
-		return;
-	}
+    return TrieKeyExists(g_tValidClassNames, szClassName)
+}
 
-	new iResult;
-	ExecuteForward(g_iForward[FORWARD_ON_GRABBING], iResult, id, iTarget);
+func_StartGrabbing(const id, const iEnt)
+{
+    g_eGrabData[id][SEARCHING] = false
+    g_eGrabData[id][GRABBED] = iEnt
 
-	if(iResult >= PLUGIN_HANDLED)
-	{
-		func_GrabDisable(id);
-		return;
-	}
+    // Is target a player?
+    if (is_user_valid(iEnt))
+    {
+        g_eGrabData[iEnt][GRABBER] = id
 
-	func_SetClimbAbility(iTarget, false);
+        if (g_eCVars[CVAR_LADDER_SUPPORT])
+        {
+            // Disable the ability to use ladders
+            func_SetClimbAbility(iEnt, false)
+        }
+    }
 
-	new iOrigin[3], Float:flOrigin[3], Float:flOrigin2[3], Float:flEntityOrigin[3], Float:flTVelocity[3];
+    new Float:flOrigin[3]
+    get_entvar(id, var_origin, flOrigin)
 
-	get_user_origin(id, iOrigin, Origin_Eyes);
-	IVecFVec(iOrigin, flOrigin);
+    new Float:flEntOrigin[3]
+    get_entvar(iEnt, var_origin, flEntOrigin)
 
-	velocity_by_aim(id, floatround(g_ePlayerGrabData[id][GRAB_DISTANCE]), flOrigin2);
+    // Get current distance between grabber and grabbed entity
+    g_eGrabData[id][GRAB_DISTANCE] = get_distance_f(flOrigin, flEntOrigin)
 
-	flEntityOrigin = func_GetEntityGrabbedOrigin(iTarget);
+    if (g_eGrabData[id][GRAB_DISTANCE] < g_eCVars[CVAR_MIN_DISTANCE])
+    {
+        g_eGrabData[id][GRAB_DISTANCE] = g_eCVars[CVAR_MIN_DISTANCE]
+    }
 
-	flTVelocity[0] = ((flOrigin[0] + flOrigin2[0]) - flEntityOrigin[0]) * g_eCvar[CVAR_FORCE];
-	flTVelocity[1] = ((flOrigin[1] + flOrigin2[1]) - flEntityOrigin[1]) * g_eCvar[CVAR_FORCE];
-	flTVelocity[2] = ((flOrigin[2] + flOrigin2[2]) - flEntityOrigin[2]) * g_eCvar[CVAR_FORCE];
+    // Execute after setting grabber/grabbed and distance
+    // so that natives return correct values
+    ExecuteForward(g_hForwards[FWD_ON_START], _, id, iEnt)
+}
 
-	set_entvar(iTarget, var_velocity, flTVelocity);
+func_GrabThink(const id)
+{
+    static iTarget
+    iTarget = g_eGrabData[id][GRABBED]
+
+    static bool:bPlayer
+    bPlayer = is_user_valid(iTarget)
+
+    if (bPlayer && !is_user_alive(iTarget) || !bPlayer && !is_entity(iTarget))
+    {
+        // Not a valid target anymore, stop grabbing
+        func_GrabDisable(id)
+        return
+    }
+
+    ExecuteForward(g_hForwards[FWD_ON_GRABBING], _, id, iTarget)
+
+    static Float:flOrigin[3], Float:flVOfs[3]
+    UTIL_GetViewPosition(id, flOrigin, flVOfs)
+
+    static Float:flEntOrigin[3]
+    func_GetEntOrigin(iTarget, flEntOrigin)
+
+    if (bPlayer || !bPlayer && get_entvar(iTarget, var_movetype) != MOVETYPE_NONE)
+    {
+        static Float:flResult[3]
+        velocity_by_aim(id, floatround(g_eGrabData[id][GRAB_DISTANCE]), flResult)
+
+        static Float:flForce
+        flForce = g_eCVars[CVAR_FORCE]
+
+        static Float:flVelocity[3]
+        flVelocity[0] = ((flOrigin[0] + flResult[0]) - flEntOrigin[0]) * flForce
+        flVelocity[1] = ((flOrigin[1] + flResult[1]) - flEntOrigin[1]) * flForce
+        flVelocity[2] = ((flOrigin[2] + flResult[2]) - flEntOrigin[2]) * flForce
+
+        set_entvar(iTarget, var_velocity, flVelocity)
+    }
+    else
+    {
+        get_entvar(id, var_v_angle, flVOfs)
+        angle_vector(flVOfs, ANGLEVECTOR_FORWARD, flVOfs)
+
+        xs_vec_mul_scalar(flVOfs, g_eGrabData[id][GRAB_DISTANCE], flVOfs)
+        xs_vec_add(flOrigin, flVOfs, flOrigin)
+
+        static Float:flMins[3]
+        get_entvar(iTarget, var_mins, flMins)
+
+        static Float:flMaxs[3]
+        get_entvar(iTarget, var_maxs, flMaxs)
+
+        if (!flMins[2])
+        {
+            flOrigin[2] -= flMaxs[2] / 2
+        }
+
+        for (new i; i < sizeof flOrigin; i++)
+        {
+            flOrigin[i] -= floatfract(flOrigin[i])
+        }
+
+        engfunc(EngFunc_SetOrigin, iTarget, flOrigin)
+    }
 }
 
 /****************************************************************************************
@@ -500,85 +602,52 @@ func_GrabThink(id)
 
 stock UTIL_GetTargetByTraceLine(const Float:flVStart[3], const Float:flVEnd[3], const pIgnore, Float:flVHitPos[3])
 {
-	engfunc(EngFunc_TraceLine, flVStart, flVEnd, 0, pIgnore, 0);
-	get_tr2(0, TR_vecEndPos, flVHitPos);
-	return get_tr2(0, TR_pHit);
+    engfunc(EngFunc_TraceLine, flVStart, flVEnd, 0, pIgnore, 0)
+    get_tr2(0, TR_vecEndPos, flVHitPos)
+    return get_tr2(0, TR_pHit)
 }
 
-stock UTIL_GetViewPosition(const id, Float:flViewPosition[3])
+stock UTIL_GetViewPosition(const id, Float:flViewPosition[3], Float:flVOfs[3] = { 0.0, 0.0, 0.0 })
 {
-	new Float:flVOfs[3];
-	get_entvar(id, var_origin, flViewPosition);
-	get_entvar(id, var_view_ofs, flVOfs);	
-
-	flViewPosition[0] += flVOfs[0];
-	flViewPosition[1] += flVOfs[1];
-	flViewPosition[2] += flVOfs[2];
-}
-
-stock Float:UTIL_VelocityByAim(id, Float:flSpeed = 1.0)
-{
-	new Float:flV1[3], Float:flV2[3];
-	get_entvar(id, var_v_angle, flV1);
-	engfunc(EngFunc_AngleVectors, flV1, flV1, flV2, flV2);
-
-	flV1[0] *= flSpeed;
-	flV1[1] *= flSpeed;
-	flV1[2] *= flSpeed;
-
-	return flV1;
-}
-
-stock rg_get_rendering(id, &iRenderFx = kRenderFxNone, &Float:flRed = 0.0, &Float:flGreen = 0.0, &Float:flBlue = 0.0, &iRenderMode = kRenderNormal, &Float:flAmount = 0.0)
-{
-	new Float:flRenderColor[3];
-	get_entvar(id, var_rendercolor, flRenderColor);
-
-	iRenderFx = get_entvar(id, var_renderfx);
-
-	flRed = flRenderColor[0];
-	flGreen = flRenderColor[1];
-	flBlue = flRenderColor[2];
-
-	iRenderMode = get_entvar(id, var_rendermode);
-	get_entvar(id, var_renderamt, flAmount);
+    get_entvar(id, var_origin, flViewPosition)
+    get_entvar(id, var_view_ofs, flVOfs)	
+    xs_vec_add(flViewPosition, flVOfs, flViewPosition)
 }
 
 // thx s1lent
 stock func_SetClimbAbility(id, bool:bCanClimb)
 {
-	new iFlags = get_entvar(id, var_iuser3);
+    new iFlags = get_entvar(id, var_iuser3)
 
-	if(bCanClimb)
-		iFlags &= ~PLAYER_PREVENT_CLIMB;
-	else
-		iFlags |= PLAYER_PREVENT_CLIMB;
+    if (bCanClimb)
+    {
+        iFlags &= ~PLAYER_PREVENT_CLIMB
+    }
+    else
+    {
+        iFlags |= PLAYER_PREVENT_CLIMB
+    }
 
-	set_entvar(id, var_iuser3, iFlags);
+    set_entvar(id, var_iuser3, iFlags)
 }
 
-stock Float:func_GetEntityGrabbedOrigin(iEnt)
+stock Float:func_GetEntOrigin(const iEnt, Float:flOrigin[3])
 {
-	new Float:flOrigin[3];
-	get_entvar(iEnt, var_origin, flOrigin);
+    get_entvar(iEnt, var_origin, flOrigin)
 
-	if(iEnt > MaxClients)
-	{
-		new Float:flMins[3], Float:flMaxs[3];
-		get_entvar(iEnt, var_mins, flMins);
-		get_entvar(iEnt, var_maxs, flMaxs);
+    if (iEnt > MaxClients)
+    {
+        static Float:flMins[3]
+        get_entvar(iEnt, var_mins, flMins)
 
-		if(!flMins[2])
-			flOrigin[2] += flMaxs[2] / 2;
-	}
+        static Float:flMaxs[3]
+        get_entvar(iEnt, var_maxs, flMaxs)
 
-	return flOrigin;
-}
+        if (!flMins[2])
+        {
+            flOrigin[2] += flMaxs[2] / 2
+        }
+    }
 
-stock bool:cmd_access2(id, iCommand)
-{
-	new iFlags;
-	get_clcmd(iCommand, "", 0, iFlags, "", 0, 0);
-
-	return bool:(get_user_flags(id) & iFlags);
+    return flOrigin
 }

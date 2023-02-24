@@ -1,0 +1,8 @@
+[en]
+GRAB_ACCESS_CVAR = Access to use grab
+
+[es]
+GRAB_ACCESS_CVAR = Acceso para usar el grab
+
+[ru]
+GRAB_ACCESS_CVAR = Доступ к использованию граба

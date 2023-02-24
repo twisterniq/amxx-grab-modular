@@ -1,11 +1,17 @@
 [en]
-GRAB_PUSH_CVAR_ENABLED = Plugin work^n0 - disabed^n1 - enabled
-GRAB_PUSH_CVAR_UNITS = How many units to push
+GRAB_PUSH_CVAR_CMD = Push using command^n0- disabled^n1 - enabled
+GRAB_PUSH_CVAR_MOUSE = Push holding left mouse click^n0- disabled^n1 - enabled
+GRAB_PUSH_CVAR_UNITS_PLAYER = How many units to push players
+GRAB_PUSH_CVAR_UNITS_NO_PLAYER = How many units to push any other entity
 
 [es]
-GRAB_PUSH_CVAR_ENABLED = Habilitar el plugin^n0 - habilitar^n1 - deshabilitar
-GRAB_PUSH_CVAR_UNITS = En cuántas unidades alejar
+GRAB_PUSH_CVAR_CMD = Alejar usando un comando^n0- deshabilitar^n1 - habilitar
+GRAB_PUSH_CVAR_MOUSE = Alejar manteniendo el clic izquierdo del ratón^n0- deshabilitar^n1 - habilitar
+GRAB_PUSH_CVAR_UNITS_PLAYER = En cuántas unidades alejar a los jugadores
+GRAB_PUSH_CVAR_UNITS_NO_PLAYER = En cuántas unidades alejar a cualquier otra entidad
 
 [ru]
-GRAB_PUSH_CVAR_ENABLED = Работа плагина^n0 - выкл.^n1 - вкл.
-GRAB_PUSH_CVAR_UNITS = На сколько юнитов отдалять
+GRAB_PUSH_CVAR_CMD = Отдалять с помощью команды^n0- выкл.^n1 - вкл.
+GRAB_PUSH_CVAR_MOUSE = Отдалять с помощью ЛКМ^n0- выкл.^n1 - вкл.
+GRAB_PUSH_CVAR_UNITS_PLAYER = На сколько юнитов отдалять игроков
+GRAB_PUSH_CVAR_UNITS_NO_PLAYER = На сколько юнитов отдалять любые другие сущности

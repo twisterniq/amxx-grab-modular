@@ -1,0 +1,11 @@
+[en]
+GRAB_MENU_PULL = Pull
+GRAB_MENU_PULL_CVAR_UNITS = How many units bring the player or the weapon closer
+
+[es]
+GRAB_MENU_PULL = Acercar
+GRAB_MENU_PULL_CVAR_UNITS = Unidades de distancia con las que el jugador o el arma será acercado
+
+[ru]
+GRAB_MENU_PULL = Приблизить
+GRAB_MENU_PULL_CVAR_UNITS = На сколько юнитов приближать оружие или игрока

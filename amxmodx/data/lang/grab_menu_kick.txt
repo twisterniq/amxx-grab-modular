@@ -1,0 +1,14 @@
+[en]
+GRAB_MENU_KICK = Kick
+GRAB_MENU_KICK_MSG = * ^4%n ^1kicked ^3%n ^1with grab
+GRAB_MENU_KICK_CVAR_REASON = Reason of kick
+
+[es]
+GRAB_MENU_KICK = Expulsar
+GRAB_MENU_KICK_MSG = * ^4%n ^1ha expulsado a ^3%n ^1con el grab
+GRAB_MENU_KICK_CVAR_REASON = Razón de la expulsión
+
+[ru]
+GRAB_MENU_KICK = Кикнуть
+GRAB_MENU_KICK_MSG = * ^4%n ^1кикнул(а) ^3%n ^1грабом
+GRAB_MENU_KICK_CVAR_REASON = Причина кика

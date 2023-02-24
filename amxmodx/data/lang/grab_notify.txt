@@ -1,0 +1,43 @@
+[en]
+GRAB_NOTIFY_CVAR_MSG_TYPE = Message type^n1 - chat^n2 - center chat^n3 - HUD^n4 - DHUD
+GRAB_NOTIFY_CVAR_TYPE = Who to notify when grabbing a player^n1 - grabber^n2 - player^n3 - grabber and player^n4 - all players
+GRAB_NOTIFY_CVAR_ONLY_PLAYERS = Notify only when grabbing players^n0 - disabled^n1 - enabled
+GRAB_NOTIFY_CVAR_RECEIVER = Who to notify when grabbing a non-player entity^n0 - all players^n1 - grabber
+
+GRAB_NOTIFY_MSG_TYPE_GRABBER = ^4* ^1You've grabbed ^3%n
+GRAB_NOTIFY_MSG_TYPE_GRABBED = ^4* ^3%n ^1has grabbed you
+GRAB_NOTIFY_MSG_TYPE_ALL = ^4* ^4%n ^1has grabbed ^3%n
+GRAB_NOTIFY_WEAPON_GRABBER = ^4* ^1You've grabbed a ^4weapon
+GRAB_NOTIFY_WEAPON_ALL = ^4* ^3%n ^1has grabbed a ^4weapon
+GRAB_NOTIFY_WEAPON_SHIELD_GRABBER = ^4* ^1You've grabbed a ^4shield
+GRAB_NOTIFY_WEAPON_SHIELD_ALL = ^4* ^3%n ^1has grabbed a ^4shield
+
+[es]
+GRAB_NOTIFY_CVAR_MSG_TYPE = Tipo de mensaje^n1 - chat^n2 - en el centro^n3 - HUD^n4 - DHUD
+GRAB_NOTIFY_CVAR_TYPE = A quién notificar al coger al jugador^n1 - al que coge^n2 - al jugador^n3 - al que coge y al jugador^n4 - a todos
+GRAB_NOTIFY_CVAR_ONLY_PLAYERS = Notificar solo cuando se coge a un jugador^n0 - deshabilitar^n1 - habilitar
+GRAB_NOTIFY_CVAR_RECEIVER = A quién notificar cuando se coge a una entidad que no es jugador^n0 a todos^n1 - al que coge
+
+GRAB_NOTIFY_MSG_TYPE_GRABBER = ^4* ^1Has cogido a ^3%n
+GRAB_NOTIFY_MSG_TYPE_GRABBED = ^4* ^3%n ^1te ha cogido
+GRAB_NOTIFY_MSG_TYPE_ALL = ^4* ^4%n ^1ha cogido a ^3%n
+GRAB_NOTIFY_WEAPON_GRABBER = ^4* ^1Has cogido un ^4arma
+GRAB_NOTIFY_WEAPON_ALL = ^4* ^3%n ^1ha cogido un ^4arma
+GRAB_NOTIFY_WEAPON_SHIELD_GRABBER = ^4* ^1Has cogido un ^4escudo
+GRAB_NOTIFY_WEAPON_SHIELD_ALL = ^4* ^3%n ^1ha cogido un ^4escudo
+
+[ru]
+GRAB_NOTIFY_CVAR_MSG_TYPE = Тип сообщения^n1 - чат^n2 - по центру экрана^n3 - HUD^n4 - DHUD
+GRAB_NOTIFY_CVAR_TYPE = Кого оповещать при взятии грабом^n1 - админа^n2 - игрока^n3 - админа и игрока^n4 - всех
+GRAB_NOTIFY_CVAR_ONLY_PLAYERS = Оповещать только если взяли игрока^n0 - выкл.^n1 - вкл.
+GRAB_NOTIFY_CVAR_RECEIVER = Кого оповещать при взятии грабом сущностей, которые не являются игроками^n0 - всех^n1 - того кто взял
+
+GRAB_NOTIFY_MSG_TYPE_GRABBER = ^4* ^1Вы взяли грабом ^3%n
+GRAB_NOTIFY_MSG_TYPE_GRABBED = ^4* ^3%n ^1взял(а) вас грабом
+GRAB_NOTIFY_MSG_TYPE_ALL = ^4* ^4%n ^1взял(а) грабом ^3%n
+GRAB_NOTIFY_WEAPON_GRABBER = ^4* ^1Вы взяли грабом ^4оружие
+GRAB_NOTIFY_WEAPON_ALL = ^4* ^3%n ^1взял(а) грабом ^4оружие
+GRAB_NOTIFY_WEAPON_SHIELD_GRABBER = ^4* ^1Вы взяли грабом ^4щит
+GRAB_NOTIFY_WEAPON_SHIELD_ALL = ^4* ^3%n ^1взял(а) грабом ^4щит
+GRAB_NOTIFY_VEHICLE_GRABBER = ^4* ^1Вы взяли грабом ^4машинку
+GRAB_NOTIFY_VEHICLE_ALL = ^4* ^3%n ^1взял(а) грабом ^4машинку

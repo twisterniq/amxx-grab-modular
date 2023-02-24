@@ -1,398 +1,617 @@
 #include <amxmodx>
 #include <reapi>
 #include <grab_modular>
-#include <grab_menu>
 
-new const PLUGIN_NAME[] = "Grab Menu: Core";
-new const PLUGIN_VERSION[] = "1.0.3";
-new const PLUGIN_AUTHOR[] = "w0w";
-
-/****************************************************************************************
-****************************************************************************************/
+public stock const PluginName[] = "Grab Menu: Core"
+public stock const PluginVersion[] = "2.0.0"
+public stock const PluginAuthor[] = "twisterniq"
 
 #define is_user_valid(%0) (1 <= %0 <= MaxClients)
 
-const ITEMS_PER_PAGE = 8;
+#define CHECK_NATIVE_PLAYER(%0,%1) \
+    if (!is_user_valid(%0)) \
+    { \
+        log_error(AMX_ERR_NATIVE, "Player out of range (%d).", %0); \
+        return %1; \
+    }
 
-enum _:Cvars
+#define CHECK_NATIVE_ITEM(%0,%1,%2) \
+    if (!(0 <= %0 < %1)) \
+    { \
+        log_error(AMX_ERR_NATIVE, "Item out of range (%d).", %0); \
+        return %2; \
+    }
+
+// Number of menu items per page if there is more than 9 items (max 8)
+const ITEMS_ON_PAGE_WITH_PAGINATOR = 8
+
+// Number of menu items per page if there is less than 9 items (max 9)
+const ITEMS_ON_PAGE_WITHOUT_PAGINATOR = 9
+
+enum _:CVars
 {
-	CVAR_ENABLED,
-	CVAR_CLOSE
-};
-
-new g_eCvar[Cvars];
-
-new g_iMenuId;
-
-enum _:MenuData
-{
-	MENU_NAME[MAX_MENUNAME_LENGTH],
-	MENU_KEY[MAX_MENUKEY_LENGTH],
-	GrabItemTeam:MENU_TEAM,
-	GrabItemTeam:MENU_TARGET_TEAM,
-	MENU_ACCESS
-};
-
-new Array:g_aMenuItems;
-
-new g_iMenuPosition[MAX_PLAYERS+1];
+    CVAR_ENABLED,
+    CVAR_CLOSE
+}
 
 enum _:Forwards
 {
-	FORWARD_MENU_OPENED,
-	FORWARD_MENU_ON_ITEM_SHOW,
-	FORWARD_MENU_ITEM_SELECTED,
-};
+    FWD_OPENED,
+    FWD_ITEM_ACCESS_CHECK,
+    FWD_ITEM_SHOW,
+    FWD_ITEM_PRESSING,
+    FWD_ITEM_SELECTED
+}
 
-new g_iForward[Forwards];
+enum _:ItemStruct
+{
+    ITEM_NAME[GRAB_MENU_MAX_NAME_LENGTH],
+    ITEM_KEY[GRAB_MENU_MAX_KEY_LENGTH],
+    GrabItemTeam:ITEM_GRABBER_TEAM,
+    GrabItemTeam:ITEM_GRABBED_TEAM,
+    ITEM_ACCESS[GRAB_MENU_MAX_ACCESS_LENGTH]
+}
 
-new Array:g_aPlayerMenuItems[MAX_PLAYERS+1];
+enum _:PlayerStruct
+{
+    PLAYER_TARGET,
+    PLAYER_CURRENT_PAGE,
+    Array:PLAYER_MENU_ITEMS,
+    Trie:PLAYER_ITEM_DATA
+}
+
+new g_iMenuId
+
+new g_eCVars[CVars]
+new g_hForwards[Forwards]
+
+new Array:g_aMenuItems
+new g_iMenuItems
+
+new g_ePlayerData[MAX_PLAYERS + 1][PlayerStruct]
 
 public plugin_init()
 {
-	register_plugin(
-		.plugin_name = PLUGIN_NAME,
-		.version = PLUGIN_VERSION,
-		.author = PLUGIN_AUTHOR
-	);
+    register_plugin(PluginName, PluginVersion, PluginAuthor)
+    register_dictionary("grab_menu.txt")
 
-	register_dictionary("grab_menu_core.txt");
-	register_dictionary("common.txt");
+    register_menucmd(g_iMenuId = register_menuid("func_MainMenu"), 1023, "func_MainMenu_Handler")
 
-	register_menucmd(g_iMenuId = register_menuid("func_GrabMenu"), 1023, "func_GrabMenu_Handler");
+    g_hForwards[FWD_OPENED] = CreateMultiForward("grab_menu_opened", ET_STOP, FP_CELL, FP_CELL)
+    g_hForwards[FWD_ITEM_ACCESS_CHECK] = CreateMultiForward("grab_menu_item_access_check", ET_STOP, FP_CELL, FP_CELL, FP_CELL, FP_STRING)
+    g_hForwards[FWD_ITEM_SHOW] = CreateMultiForward("grab_menu_item_show", ET_STOP, FP_CELL, FP_CELL, FP_CELL)
+    g_hForwards[FWD_ITEM_PRESSING] = CreateMultiForward("grab_menu_item_pressing", ET_STOP, FP_CELL, FP_CELL)
+    g_hForwards[FWD_ITEM_SELECTED] = CreateMultiForward("grab_menu_item_selected", ET_STOP, FP_CELL, FP_CELL, FP_CELL)
 
-	g_iForward[FORWARD_MENU_OPENED] = CreateMultiForward("grab_menu_opened", ET_STOP, FP_CELL, FP_CELL);
-	g_iForward[FORWARD_MENU_ON_ITEM_SHOW] = CreateMultiForward("grab_menu_on_item_show", ET_STOP, FP_CELL, FP_CELL, FP_CELL);
-	g_iForward[FORWARD_MENU_ITEM_SELECTED] = CreateMultiForward("grab_menu_item_selected", ET_STOP, FP_CELL, FP_CELL, FP_CELL);
+    g_aMenuItems = ArrayCreate(ItemStruct)
 
-	RegisterHookChain(RH_SV_DropClient, "refwd_DropClient_Post", true);
+    for (new i = 1; i <= MaxClients; i++)
+    {
+        g_ePlayerData[i][PLAYER_MENU_ITEMS] = ArrayCreate()
+    }
 
-	func_RegisterCvars();
-
-	for(new i = 1; i <= MaxClients; i++)
-		g_aPlayerMenuItems[i] = ArrayCreate();
+    func_CreateCVars()
 }
 
-func_RegisterCvars()
+func_CreateCVars()
 {
-	new pCvar;
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_menu_enabled",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_ENABLED"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_eCVars[CVAR_ENABLED]
+    )
 
-	pCvar = create_cvar("grab_menu_core_enabled", "1", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_MENU_CORE_CVAR_ENABLED"), true, 0.0, true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_ENABLED]);
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_menu_close",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_MENU_CVAR_CLOSE"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_eCVars[CVAR_CLOSE]
+    )
 
-	pCvar = create_cvar("grab_menu_core_close", "1", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_MENU_CORE_CVAR_CLOSE"), true, 0.0, true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_CLOSE]);
-
-	AutoExecConfig(true, "grab_menu_core", "grab_modular/grab_menu");
+    AutoExecConfig(true, "grab_menu_core", "grab_modular")
 }
 
 public plugin_natives()
 {
-	g_aMenuItems = ArrayCreate(MenuData);
-
-	register_library("grab_menu");
-
-	register_native("grab_menu_open",				"NativeHandle_OpenMenu");
-	register_native("grab_menu_add_item",			"NativeHandle_AddItem");
-	register_native("grab_menu_get_item_info",		"NativeHandle_GetItemInfo");
-	register_native("grab_menu_set_item_info", 		"NativeHandle_SetItemInfo");
-	register_native("grab_menu_find_item_by_key",	"NativeHandle_FindItemByKey");
+    register_native("grab_menu_open", "native_grab_menu_open")
+    register_native("grab_menu_add_item", "native_grab_menu_add_item")
+    register_native("grab_menu_get_item_info", "native_grab_menu_get_item_info")
+    register_native("grab_menu_set_item_info", "native_grab_menu_set_item_info")
+    register_native("grab_menu_find_item_by_key", "native_grab_menu_find_item_by_key")
 }
 
-public bool:NativeHandle_OpenMenu(iPlugin, iParams)
+public bool:native_grab_menu_open()
 {
-	enum { arg_player = 1 };
+    enum { arg_player = 1 }
 
-	new iPlayer = get_param(arg_player);
+    new id = get_param(arg_player)
 
-	if(!is_user_valid(iPlayer))
-		abort(AMX_ERR_NATIVE, "Player out of range (%d)", iPlayer);
+    if (!is_user_valid(id))
+    {
+        log_error(AMX_ERR_NATIVE, "Player out of range (%d).", id)
+        return false
+    }
 
-	new iEnt = is_player_grabbing(iPlayer);
+    new iTarget = grab_get_grabbed(id)
 
-	if(!iEnt || !is_user_valid(iEnt))
-		return false;
+    if (!is_user_valid(iTarget))
+    {
+        return false
+    }
 
-	func_GrabMenu(iPlayer, 0);
-	return true;
+    g_ePlayerData[id][PLAYER_TARGET] = iTarget
+    func_CreateMenu(id, g_ePlayerData[id][PLAYER_CURRENT_PAGE] = 0)
+
+    return true
 }
 
-public NativeHandle_AddItem(iPlugin, iParams)
+public native_grab_menu_add_item()
 {
-	enum { arg_name = 1, arg_key, arg_team, arg_target_team, arg_access };
+    enum { arg_name = 1, arg_key, arg_grabber_team, arg_grabbed_team, arg_access }
 
-	new eMenuData[MenuData], szTeam[4];
+    new eItemData[ItemStruct]
+    get_string(arg_key, eItemData[ITEM_KEY], charsmax(eItemData[ITEM_KEY]))
 
-	get_string(arg_name, eMenuData[MENU_NAME], charsmax(eMenuData[MENU_NAME]));
+    if (func_FindItemByKey(eItemData[ITEM_KEY]))
+    {
+        log_error(AMX_ERR_NATIVE, "Item key must be unique (^"%s^" already exists).", eItemData[ITEM_KEY])
+        return 0
+    }
 
-	get_string(arg_team, szTeam, charsmax(szTeam));
-	eMenuData[MENU_TEAM] = GrabItemTeam:read_flags(szTeam);
+    get_string(arg_name, eItemData[ITEM_NAME], charsmax(eItemData[ITEM_NAME]))
+    eItemData[ITEM_GRABBER_TEAM] = GrabItemTeam:get_param(arg_grabber_team)
+    eItemData[ITEM_GRABBED_TEAM] = GrabItemTeam:get_param(arg_grabbed_team)
+    get_string(arg_access, eItemData[ITEM_ACCESS], charsmax(eItemData[ITEM_ACCESS]))
 
-	get_string(arg_target_team, szTeam, charsmax(szTeam));
-	eMenuData[MENU_TARGET_TEAM] = GrabItemTeam:read_flags(szTeam);
+    ArrayPushArray(g_aMenuItems, eItemData)
+    g_iMenuItems++
 
-	eMenuData[MENU_ACCESS] = get_param(arg_access);
-
-	if(get_string(arg_key, eMenuData[MENU_KEY], charsmax(eMenuData[MENU_KEY]))
-		&& ArrayFindString(g_aMenuItems, eMenuData[MENU_KEY]) != INVALID_HANDLE)
-	{
-		abort(AMX_ERR_NATIVE, "Key already exists (^"%s^")", eMenuData[MENU_KEY]);
-	}
-
-	return ArrayPushArray(g_aMenuItems, eMenuData) + 1;
+    return g_iMenuItems
 }
 
-public bool:NativeHandle_GetItemInfo(iPlugin, iParams)
+public bool:native_grab_menu_get_item_info()
 {
-	enum {
-		arg_itemid = 1,
-		arg_name,
-		arg_name_length,
-		arg_key,
-		arg_key_length,
-		arg_team,
-		arg_access
-	};
+    enum
+    {
+        arg_player = 1,
+        arg_itemid,
+        arg_name, arg_name_length,
+        arg_key, arg_key_length,
+        arg_grabber_team,
+        arg_grabbed_team,
+        arg_access, arg_access_len
+    }
 
-	new iItemInArray = get_param(arg_itemid) - 1;
-	new iSize = ArraySize(g_aMenuItems);
+    new id = get_param(arg_player)
 
-	if(iItemInArray < 0 || iItemInArray > iSize)
-		return false;
+    if (id)
+    {
+        CHECK_NATIVE_PLAYER(id, false)
+    }
 
-	new eMenuData[MenuData];
-	ArrayGetArray(g_aMenuItems, iItemInArray, eMenuData);
+    new iItemId = get_param(arg_itemid) - 1
+    CHECK_NATIVE_ITEM(iItemId, g_iMenuItems, false)
 
-	set_string(arg_name, eMenuData[MENU_NAME], get_param(arg_name_length));
-	set_string(arg_key, eMenuData[MENU_KEY], get_param(arg_key_length));
-	set_param_byref(arg_team, any:eMenuData[MENU_TEAM]);
-	set_param_byref(arg_access, eMenuData[MENU_ACCESS]);
+    new eItemData[ItemStruct]
+    func_GetItemData(id, iItemId, eItemData)
 
-	return true;
+    set_string(arg_name, eItemData[ITEM_NAME], get_param(arg_name_length))
+    set_string(arg_key, eItemData[ITEM_KEY], get_param(arg_key_length))
+    set_param_byref(arg_grabber_team, any:eItemData[ITEM_GRABBER_TEAM])
+    set_param_byref(arg_grabbed_team, any:eItemData[ITEM_GRABBED_TEAM])
+    set_string(arg_access, eItemData[ITEM_ACCESS], get_param(arg_access_len))
+
+    return true
 }
 
-public bool:NativeHandle_SetItemInfo(iPlugin, iParams)
+public bool:native_grab_menu_set_item_info(amxx, params)
 {
-	enum { arg_itemid = 1, arg_prop, arg_value, arg_vargs };
+    enum { arg_player = 1, arg_itemid, arg_prop, arg_value, arg_vargs }
 
-	new iItemInArray = get_param(arg_itemid) - 1;
-	new iSize = ArraySize(g_aMenuItems);
+    new id = get_param(arg_player)
 
-	if(iItemInArray < 0 || iItemInArray > iSize)
-		return false;
+    if (id)
+    {
+        CHECK_NATIVE_PLAYER(id, false)
 
-	new eMenuData[MenuData];
-	ArrayGetArray(g_aMenuItems, iItemInArray, eMenuData);
+        if (g_ePlayerData[id][PLAYER_ITEM_DATA] == Invalid_Trie)
+        {
+            g_ePlayerData[id][PLAYER_ITEM_DATA] = TrieCreate()
+        }
+    }
 
-	new iProp = get_param(arg_prop);
+    new iItemId = get_param(arg_itemid) - 1
+    CHECK_NATIVE_ITEM(iItemId, g_iMenuItems, false)
 
-	switch(iProp)
-	{
-		case GRAB_PROP_NAME, GRAB_PROP_KEY:
-		{
-			vdformat(eMenuData[iProp], (iProp == any:GRAB_PROP_NAME ? MAX_MENUNAME_LENGTH : MAX_MENUKEY_LENGTH) - 1, arg_value, arg_vargs);
-		}
-		case GRAB_PROP_TEAM, GRAB_PROP_TARGET_TEAM, GRAB_PROP_ACCESS:
-		{
-			eMenuData[iProp] = get_param_byref(arg_value);
-		}
-		default:
-		{
-			return false;
-		}
-	}
+    new eItemData[ItemStruct]
+    func_GetItemData(id, iItemId, eItemData)
 
-	ArraySetArray(g_aMenuItems, iItemInArray, eMenuData);
+    if (params < arg_value)
+    {
+        log_error(AMX_ERR_NATIVE, "Missing new item property value.")
+        return false
+    }
 
-	return true;
+    if (!func_GetModifiedItemData(arg_prop, arg_value, arg_vargs, eItemData))
+    {
+        return false
+    }
+
+    new bool:bSuccess
+
+    if (id)
+    {
+        bSuccess = bool:TrieSetArray(g_ePlayerData[id][PLAYER_ITEM_DATA], fmt("%d", iItemId), eItemData, ItemStruct)
+    }
+    else
+    {
+        bSuccess = bool:ArraySetArray(g_aMenuItems, iItemId, eItemData)
+    }
+
+    return bSuccess
 }
 
-public NativeHandle_FindItemByKey(iPlugin, iParams)
+public native_grab_menu_find_item_by_key()
 {
-	enum { arg_key = 1 };
+    enum { arg_key = 1 }
 
-	new szKey[MAX_MENUKEY_LENGTH];
-	get_string(arg_key, szKey, charsmax(szKey));
+    new szKey[GRAB_MENU_MAX_KEY_LENGTH]
+    get_string(arg_key, szKey, charsmax(szKey))
 
-	new iSize = ArraySize(g_aMenuItems);
-	new eMenuData[MenuData];
-
-	for(new i; i < iSize; i++)
-	{
-		ArrayGetArray(g_aMenuItems, i, eMenuData);
-
-		if(!strcmp(eMenuData[MENU_KEY], szKey))
-			return i + 1;
-	}
-
-	return 0;
+    return func_FindItemByKey(szKey)
 }
 
-public refwd_DropClient_Post(const id)
+func_FindItemByKey(const szKey[])
 {
-	ArrayClear(g_aPlayerMenuItems[id]);
+    new eItemData[ItemStruct]
+
+    for (new i; i < g_iMenuItems; i++)
+    {
+        ArrayGetArray(g_aMenuItems, i, eItemData)
+
+        if (equal(eItemData[ITEM_KEY], szKey))
+        {
+            return i + 1
+        }
+    }
+
+    return 0
 }
 
-public grab_on_start(id, iEntity)
+public grab_on_start(id, iTarget)
 {
-	if(!g_eCvar[CVAR_ENABLED])
-		return;
+    if (!g_eCVars[CVAR_ENABLED] || !g_iMenuItems)
+    {
+        return
+    }
 
-	if(!g_eCvar[CVAR_CLOSE] && func_IsMenuOpened(id, true))
-		return;
+    if (!g_eCVars[CVAR_CLOSE] && func_IsMenuOpened(id, true))
+    {
+        return
+    }
 
-	if(!is_user_valid(iEntity))
-		return;
-
-	func_GrabMenu(id, 0);
+    g_ePlayerData[id][PLAYER_TARGET] = iTarget
+    func_CreateMenu(id, g_ePlayerData[id][PLAYER_CURRENT_PAGE] = 0)
 }
 
-public grab_on_finish(id, iEntity)
+public grab_on_finish(id, iEnt)
 {
-	if(func_IsMenuOpened(id, false))
-		show_menu(id, 0, "^n");
+    if (!g_eCVars[CVAR_ENABLED] || !g_iMenuItems)
+    {
+        return
+    }
+
+    if (func_IsMenuOpened(id, false))
+    {
+        show_menu(id, 0, "^n")
+    }
+
+    g_ePlayerData[id][PLAYER_TARGET] = 0
 }
 
 bool:func_IsMenuOpened(id, bool:bOtherMenu)
 {
-	new iMenu, iKeys;
-	get_user_menu(id, iMenu, iKeys);
+    new iMenu, iKeys
+    get_user_menu(id, iMenu, iKeys)
 
-	if(bOtherMenu && get_member(id, m_iMenu) > Menu_OFF)
-		return true;
+    if (bOtherMenu && get_member(id, m_iMenu) > Menu_OFF)
+    {
+        return true
+    }
 
-	if(!iMenu)
-		return false;
+    if (!iMenu)
+    {
+        return false
+    }
 
-	return !bOtherMenu ? (iMenu == g_iMenuId) : (iMenu != g_iMenuId);
+    return !bOtherMenu ? (iMenu == g_iMenuId) : (iMenu != g_iMenuId)
 }
 
-public func_GrabMenu(id, iPage)
+func_CreateMenu(const id, const iPage)
 {
-	if(iPage < 0)
-		return;
+    new iTarget = g_ePlayerData[id][PLAYER_TARGET]
 
-	new iTarget = is_player_grabbing(id);
+    new iRet
+    ExecuteForward(g_hForwards[FWD_OPENED], iRet, id, iTarget)
 
-	new iResult;
-	ExecuteForward(g_iForward[FORWARD_MENU_OPENED], iResult, id, iTarget);
+    if (iRet == GRAB_BLOCKED)
+    {
+        // Don't open menu
+        return
+    }
 
-	if(iResult >= PLUGIN_HANDLED)
-		return;
+    new TeamName:iPlayerTeam, TeamName:iTargetTeam
+    new bool:bPlayer = is_user_valid(iTarget)
 
-	SetGlobalTransTarget(id);
+    iPlayerTeam = get_member(id, m_iTeam)
 
-	ArrayClear(g_aPlayerMenuItems[id]);
+    if (bPlayer)
+    {
+        iTargetTeam = get_member(iTarget, m_iTeam)
+    }
 
-	new iSize = ArraySize(g_aMenuItems);
-	new eMenuData[MenuData];
+    new eItemData[ItemStruct]
 
-	for(new i; i < iSize; i++)
-	{
-		ArrayGetArray(g_aMenuItems, i, eMenuData);
+    ArrayClear(g_ePlayerData[id][PLAYER_MENU_ITEMS])
 
-		if(eMenuData[MENU_TEAM] & GRAB_TEAM_T && get_member(id, m_iTeam) != TEAM_TERRORIST
-			|| eMenuData[MENU_TEAM] & GRAB_TEAM_CT && get_member(id, m_iTeam) != TEAM_CT
-			|| eMenuData[MENU_TEAM] & GRAB_TEAM_SPECTATOR && get_member(id, m_iTeam) != TEAM_SPECTATOR)
-		{
-			continue;
-		}
+    for (new i; i < g_iMenuItems; i++)
+    {
+        func_GetItemData(id, i, eItemData)
 
-		if(eMenuData[MENU_TARGET_TEAM] & GRAB_TEAM_T && get_member(iTarget, m_iTeam) != TEAM_TERRORIST
-			|| eMenuData[MENU_TARGET_TEAM] & GRAB_TEAM_CT && get_member(iTarget, m_iTeam) != TEAM_CT
-			|| eMenuData[MENU_TARGET_TEAM] & GRAB_TEAM_SPECTATOR && get_member(iTarget, m_iTeam) != TEAM_SPECTATOR)
-		{
-			continue;
-		}
+        if (
+            eItemData[ITEM_GRABBER_TEAM] & GRAB_TEAM_T && iPlayerTeam == TEAM_TERRORIST
+            || eItemData[ITEM_GRABBER_TEAM] & GRAB_TEAM_CT && iPlayerTeam == TEAM_CT
+            || eItemData[ITEM_GRABBER_TEAM] & GRAB_TEAM_SPECTATOR && iPlayerTeam == TEAM_SPECTATOR
+        )
+        {
+            if (bPlayer &&
+                (eItemData[ITEM_GRABBED_TEAM] & GRAB_TEAM_T && iTargetTeam == TEAM_TERRORIST
+                || eItemData[ITEM_GRABBED_TEAM] & GRAB_TEAM_CT && iTargetTeam == TEAM_CT
+                || eItemData[ITEM_GRABBED_TEAM] & GRAB_TEAM_SPECTATOR && iTargetTeam == TEAM_SPECTATOR)
+                || !bPlayer && eItemData[ITEM_GRABBED_TEAM] & GRAB_TEAM_NONE
+            )
+            {
+                if (eItemData[ITEM_ACCESS][0])
+                {
+                    ExecuteForward(g_hForwards[FWD_ITEM_ACCESS_CHECK], iRet, id, iTarget, i + 1, eItemData[ITEM_ACCESS])
 
-		new iResult;
-		ExecuteForward(g_iForward[FORWARD_MENU_ON_ITEM_SHOW], iResult, id, iTarget, i + 1);
+                    if (iRet == GRAB_BLOCKED)
+                    {
+                        // Player doesn't have access to this item, it can't be shown, go to next item
+                        continue
+                    }
+                }
 
-		if(iResult >= PLUGIN_HANDLED)
-			continue;
+                ExecuteForward(g_hForwards[FWD_ITEM_SHOW], iRet, id, iTarget, i + 1)
 
-		ArrayPushCell(g_aPlayerMenuItems[id], i);
-	}
+                if (iRet == GRAB_BLOCKED)
+                {
+                    // This item can't be shown, go to next item
+                    continue
+                }
 
-	new iItems = ArraySize(g_aPlayerMenuItems[id]);
+                ArrayPushCell(g_ePlayerData[id][PLAYER_MENU_ITEMS], i)
+            }
+        }
+    }
 
-	if(!iItems)
-		return;
+    if (!ArraySize(g_ePlayerData[id][PLAYER_MENU_ITEMS]))
+    {
+        // No items available for player
+        return
+    }
 
-	new iStart = iPage * ITEMS_PER_PAGE;
-	if(iStart > iItems)
-		iStart = iItems;
-
-	iStart = iStart - (iStart % ITEMS_PER_PAGE);
-	g_iMenuPosition[id] = iStart / ITEMS_PER_PAGE;
-
-	new iEnd = iStart + ITEMS_PER_PAGE;
-	if(iEnd > iItems)
-		iEnd = iItems;
-
-	new szMenu[MAX_MENU_LENGTH], iLen, iKeys = (MENU_KEY_0), iMenuItem;
-	new iPagesNum = (iItems / ITEMS_PER_PAGE + ((iItems % ITEMS_PER_PAGE) ? 1 : 0));
-	new iItemId;
-
-	if(iPagesNum > 1)
-		iLen = formatex(szMenu, charsmax(szMenu), "^t^t^t^t^t\y%l \d%d/%d^n^n", "GRAB_MENU_CORE_TITLE", iTarget, iPage + 1, iPagesNum);
-	else
-		iLen = formatex(szMenu, charsmax(szMenu), "^t^t^t^t^t\y%l^n^n", "GRAB_MENU_CORE_TITLE", iTarget);
-
-	for(new a = iStart; a < iEnd; a++)
-	{
-		iItemId = ArrayGetCell(g_aPlayerMenuItems[id], a);
-		ArrayGetArray(g_aMenuItems, iItemId, eMenuData);
-
-		if(eMenuData[MENU_ACCESS] == ADMIN_ALL || eMenuData[MENU_ACCESS] != ADMIN_ALL && get_user_flags(id) & eMenuData[MENU_ACCESS])
-		{
-			iKeys |= (1<<iMenuItem);
-			iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^t^t^t^t^t\y%d. \w%s^n", ++iMenuItem, eMenuData[MENU_NAME]);
-		}
-		else
-			iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^t^t^t^t^t\d%d. %s^n", ++iMenuItem, eMenuData[MENU_NAME]);
-	}
-
-	if(iEnd < iItems)
-	{
-		iKeys |= (MENU_KEY_9);
-		formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^n^t^t^t^t^t\y9. \w%l^n^t^t^t^t^t\y0. \w%l", "MORE", iPage ? "BACK" : "EXIT");
-	}
-	else
-		formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^n^t^t^t^t^t\y0. \w%l", iPage ? "BACK" : "EXIT");
-
-	show_menu(id, iKeys, szMenu, -1, "func_GrabMenu");
+    func_MainMenu(id, iPage)
 }
 
-public func_GrabMenu_Handler(id, iKey)
+func_MainMenu(const id, iPage)
 {
-	switch(iKey)
-	{
-		case 8:
-		{
-			func_GrabMenu(id, ++g_iMenuPosition[id]);
-		}
-		case 9:
-		{
-			func_GrabMenu(id, --g_iMenuPosition[id]);
-		}
-		default:
-		{
-			new iSelectedItem = (g_iMenuPosition[id] * ITEMS_PER_PAGE) + iKey;
-			new iItemInArray = ArrayGetCell(g_aPlayerMenuItems[id], iSelectedItem);
+    if (iPage < 0)
+    {
+        return
+    }
 
-			new iEntity = is_player_grabbing(id);
+    new szMenu[MAX_MENU_LENGTH], iLen, iStart, iEnd, iMenuItem, iKeys = MENU_KEY_0, iPagesNum
+    new iItems, iItemsOnPage, iItemId, eItemData[ItemStruct]
+    new iTarget = g_ePlayerData[id][PLAYER_TARGET]
+    new iRet
 
-			new iResult;
-			ExecuteForward(g_iForward[FORWARD_MENU_ITEM_SELECTED], iResult, id, iEntity, iItemInArray + 1);
+    iItems = ArraySize(g_ePlayerData[id][PLAYER_MENU_ITEMS])
+    iItemsOnPage = iItems > ITEMS_ON_PAGE_WITHOUT_PAGINATOR ? ITEMS_ON_PAGE_WITH_PAGINATOR : ITEMS_ON_PAGE_WITHOUT_PAGINATOR
+    iPagesNum = iItems / iItemsOnPage + ((iItems % iItemsOnPage) ? 1 : 0)
 
-			if(iResult >= PLUGIN_HANDLED)
-				return;
+    if ((iStart = iPage * iItemsOnPage) > iItems)
+    {
+        iStart = iPage = g_ePlayerData[id][PLAYER_CURRENT_PAGE] = 0
+    }
 
-			if(!is_user_alive(iEntity))
-				return;
+    if ((iEnd = iStart + iItemsOnPage) > iItems)
+    {
+        iEnd = iItems
+    }
 
-			func_GrabMenu(id, g_iMenuPosition[id]);
-		}
-	}
+    SetGlobalTransTarget(id)
+
+    if (is_user_valid(iTarget))
+    {
+        iLen = formatex(szMenu, charsmax(szMenu), "^t^t^t^t^t\y%l", "GRAB_MENU_TITLE_PLAYER", iTarget)
+    }
+    else
+    {
+        iLen = formatex(szMenu, charsmax(szMenu), "^t^t^t^t^t\y%l", "GRAB_MENU_TITLE_ENT")
+    }
+
+    if (iItems > ITEMS_ON_PAGE_WITH_PAGINATOR)
+    {
+        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, " \d%d/%d", iPage + 1, iPagesNum)
+    }
+
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^n^n")
+
+    for (new i; iStart < iEnd; i++)
+    {
+        iItemId = ArrayGetCell(g_ePlayerData[id][PLAYER_MENU_ITEMS], iStart++)
+        func_GetItemData(id, iItemId, eItemData)
+
+        ExecuteForward(g_hForwards[FWD_ITEM_PRESSING], iRet, id, iItemId + 1)
+
+        if (iRet == GRAB_ALLOWED)
+        {
+            iKeys |= (1<<iMenuItem)
+            iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^t^t^t^t^t\y%d. \w%s^n",
+                ++iMenuItem, eItemData[ITEM_NAME])
+        }
+        else
+        {
+            iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^t^t^t^t^t\d%d. %s^n", ++iMenuItem, eItemData[ITEM_NAME])
+        }
+    }
+
+    if (iEnd != iItems)
+    {
+        iKeys |= MENU_KEY_9
+        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^n^t^t^t^t^t\y9. \w%l^n", "GRAB_MENU_NEXT")
+    }
+    else
+    {
+        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^n")
+    }
+
+    formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^t^t^t^t^t\y0. \w%l", iPage ? "GRAB_MENU_BACK" : "GRAB_MENU_EXIT")
+
+    show_menu(id, iKeys, szMenu, -1, "func_MainMenu")
+}
+
+public func_MainMenu_Handler(const id, const iKey)
+{
+    new bool:bPagination = ArraySize(g_ePlayerData[id][PLAYER_MENU_ITEMS]) > ITEMS_ON_PAGE_WITHOUT_PAGINATOR
+
+    switch (iKey)
+    {
+        // 9. Next
+        case 8:
+        {
+            if (bPagination)
+            {
+                func_CreateMenu(id, ++g_ePlayerData[id][PLAYER_CURRENT_PAGE])
+            }
+            else
+            {
+                func_SelectItem(id, iKey, bPagination)
+            }
+        }
+        // 0. Back/Exit
+        case 9:
+        {
+            func_CreateMenu(id, --g_ePlayerData[id][PLAYER_CURRENT_PAGE])
+        }
+        default:
+        {
+            func_SelectItem(id, iKey, bPagination)
+        }
+    }
+}
+
+func_SelectItem(const id, const iKey, bool:bPagination)
+{
+    new iItemsPerPage = !bPagination ? ITEMS_ON_PAGE_WITHOUT_PAGINATOR : ITEMS_ON_PAGE_WITH_PAGINATOR
+    new i = g_ePlayerData[id][PLAYER_CURRENT_PAGE] * iItemsPerPage + iKey
+    new iItemId = ArrayGetCell(g_ePlayerData[id][PLAYER_MENU_ITEMS], i)
+
+    new iRet
+    ExecuteForward(g_hForwards[FWD_ITEM_SELECTED], iRet, id, g_ePlayerData[id][PLAYER_TARGET], iItemId + 1)
+
+    if (iRet == GRAB_BLOCKED)
+    {
+        // Don't reopen menu if it's blocked
+        return
+    }
+
+    if (!grab_get_grabbed(id))
+    {
+        // Don't reopen menu if grab was disabled
+        return
+    }
+
+    func_CreateMenu(id, g_ePlayerData[id][PLAYER_CURRENT_PAGE])
+}
+
+// thanks to Kaido Ren (Shop API)
+func_GetItemData(const id, const iItemId, eItemData[] = NULL_STRING)
+{
+    new bool:bSuccess
+
+    if (id && g_ePlayerData[id][PLAYER_ITEM_DATA])
+    {
+        bSuccess = TrieGetArray(g_ePlayerData[id][PLAYER_ITEM_DATA], fmt("%d", iItemId), eItemData, ItemStruct)
+    }
+
+    // id is GRAB_GLOBAL_INFO or player has no custom data set
+    if (!bSuccess)
+    {
+        ArrayGetArray(g_aMenuItems, iItemId, eItemData)
+    }
+}
+
+// thanks to Kaido Ren (Shop API)
+bool:func_GetModifiedItemData(arg_prop, arg_value, arg_vargs, eItemData[])
+{
+    new iProp = get_param(arg_prop)
+
+    switch (iProp)
+    {
+        case GRAB_PROP_NAME:
+        {
+            if (!vdformat(eItemData[ITEM_NAME], GRAB_MENU_MAX_NAME_LENGTH - 1, arg_value, arg_vargs))
+            {
+                log_error(AMX_ERR_NATIVE, "New item property value cannot be empty.")
+                return false
+            }
+        }
+        case GRAB_PROP_KEY:
+        {
+            if (!vdformat(eItemData[ITEM_KEY], GRAB_MENU_MAX_KEY_LENGTH - 1, arg_value, arg_vargs))
+            {
+                log_error(AMX_ERR_NATIVE, "New item property value cannot be empty.")
+                return false
+            }
+
+            if (ArrayFindString(g_aMenuItems, eItemData[ITEM_KEY]) != -1)
+            {
+                log_error(AMX_ERR_NATIVE, "Item key must be unique (^"%s^" already exists).", eItemData[ITEM_KEY])
+            }
+        }
+        case GRAB_PROP_GRABBER_TEAM:
+        {
+            eItemData[ITEM_GRABBER_TEAM] = GrabItemTeam:get_param_byref(arg_value)
+        }
+        case GRAB_PROP_GRABBED_TEAM:
+        {
+            eItemData[ITEM_GRABBED_TEAM] = GrabItemTeam:get_param_byref(arg_value)
+        }
+        case GRAB_PROP_ACCESS:
+        {
+            vdformat(eItemData[ITEM_ACCESS], GRAB_MENU_MAX_ACCESS_LENGTH - 1, arg_value, arg_vargs)
+        }
+        default:
+        {
+            log_error(AMX_ERR_NATIVE, "This property doesn't exist.")
+            return false
+        }
+    }
+
+    return true
 }

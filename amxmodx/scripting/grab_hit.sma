@@ -3,175 +3,202 @@
 #include <reapi>
 #include <grab_modular>
 
-#pragma semicolon 1
+public stock const PluginName[] = "Grab: Hit"
+public stock const PluginVersion[] = "2.0.0"
+public stock const PluginAuthor[] = "twisterniq"
 
-new const PLUGIN_NAME[] = "Grab: Hit";
-new const PLUGIN_VERSION[] = "1.0.0";
-new const PLUGIN_AUTHOR[] = "w0w";
+// Path to the sound that will be played when player is hit
+// It's a default sound, so it's not precached
+new const SOUND_HIT[] = "player/pl_pain2.wav"
 
-/****************************************************************************************
-****************************************************************************************/
-
-new const g_szSoundHit[] = "player/pl_pain2.wav";
-
-/****************************************************************************************
-****************************************************************************************/
-
-#define is_user_valid(%0) (1 <= %0 <= MaxClients)
-
-enum _:Cvars
+enum _:CVars
 {
-	CVAR_ENABLED,
-	CVAR_DAMAGE,
-	Float:CVAR_COOLDOWN,
-	CVAR_GIBS
-};
+    CVAR_ENABLED,
+    Float:CVAR_DAMAGE,
+    Float:CVAR_COOLDOWN,
+    CVAR_GIBS
+}
 
-new g_eCvar[Cvars];
-
-enum (+= 100)
-{
-	TASK_ID_HIT = 100
-};
-
-new bool:g_bHitEnabled[MAX_PLAYERS+1];
+new g_eCVars[CVars]
+new bool:g_bHitEnabled[MAX_PLAYERS + 1]
 
 public plugin_init()
 {
-	register_plugin(
-		.plugin_name = PLUGIN_NAME,
-		.version = PLUGIN_VERSION,
-		.author = PLUGIN_AUTHOR
-	);
+    register_plugin(PluginName, PluginVersion, PluginAuthor)
+    register_dictionary("grab_hit.txt")
 
-	register_dictionary("grab_hit.txt");
-
-	RegisterHookChain(RH_SV_DropClient, "refwd_DropClient_Post", true);
-
-	func_RegisterCvars();
+    func_CreateCVars()
 }
 
-func_RegisterCvars()
+func_CreateCVars()
 {
-	new pCvar;
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_hit_enabled",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_ENABLED"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_eCVars[CVAR_ENABLED]
+    )
 
-	pCvar = create_cvar("grab_hit_enabled", "1", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_ENABLED"), true, 0.0, true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_ENABLED]);
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_hit_damage",
+            .string = "5.0",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_DAMAGE"),
+            .has_min = true,
+            .min_val = 1.0
+        ), g_eCVars[CVAR_DAMAGE]
+    )
 
-	pCvar = create_cvar("grab_hit_damage", "5", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_DAMAGE"), true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_DAMAGE]);
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_hit_cooldown",
+            .string = "0.5",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_COOLDOWN"),
+            .has_min = true,
+            .min_val = 0.1
+        ), g_eCVars[CVAR_COOLDOWN]
+    )
 
-	pCvar = create_cvar("grab_hit_cooldown", "0.5", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_COOLDOWN"), true, 0.1);
-	bind_pcvar_float(pCvar, g_eCvar[CVAR_COOLDOWN]);
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_hit_gibs",
+            .string = "2",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_GIBS"),
+            .has_min = true,
+            .min_val = 1.0,
+            .has_max = true,
+            .max_val = 2.0
+        ), g_eCVars[CVAR_GIBS]
+    )
 
-	pCvar = create_cvar("grab_hit_gibs", "2", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_GIBS"), true, 1.0, true, 2.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_GIBS]);
-
-	AutoExecConfig(true, "grab_hit", "grab_modular");
+    AutoExecConfig(true, "grab_hit", "grab_modular")
 }
 
-public refwd_DropClient_Post(const id)
+public client_disconnected(id)
 {
-	if(g_bHitEnabled[id])
-	{
-		g_bHitEnabled[id] = false;
-		remove_task(id+TASK_ID_HIT);
-	}
+    if (g_bHitEnabled[id])
+    {
+        g_bHitEnabled[id] = false
+        remove_task(id)
+    }
 }
 
-public grab_on_grabbing(id, iEntity)
+public grab_on_grabbing(id, iTarget)
 {
-	if(!(get_entvar(id, var_button) & IN_USE) || !is_user_valid(iEntity) ||g_bHitEnabled[id])
-		return;
+    // Already hitting player
+    if (g_bHitEnabled[id])
+    {
+        return
+    }
 
-	new Float:flOrigin[3];
-	get_entvar(iEntity, var_origin, flOrigin);
+    // Grabbed entity is not a player
+    if (!(1 <= iTarget <= MaxClients))
+    {
+        return
+    }
 
-	UTIL_ScreenShake(iEntity, 8.0, 4.0, 100.0);
-	UTIL_Blood(flOrigin);
+    // Player is not using '+use'
+    if (!(get_entvar(id, var_button) & IN_USE))
+    {
+        return
+    }
 
-	new Float:flHealth;
-	get_entvar(iEntity, var_health, flHealth);
+    new Float:flOrigin[3]
+    get_entvar(iTarget, var_origin, flOrigin)
 
-	if((flHealth - g_eCvar[CVAR_DAMAGE]) > 0.0)
-		set_entvar(iEntity, var_health, flHealth - g_eCvar[CVAR_DAMAGE]);
-	else
-		ExecuteHamB(Ham_Killed, iEntity, id, g_eCvar[CVAR_GIBS]);
+    UTIL_ScreenShake(iTarget, 8.0, 4.0, 100.0)
+    UTIL_Blood(flOrigin)
 
-	rh_emit_sound2(iEntity, 0, CHAN_BODY, g_szSoundHit, VOL_NORM, ATTN_NORM, 0, PITCH_NORM);
+    new Float:flHealth
+    get_entvar(iTarget, var_health, flHealth)
 
-	g_bHitEnabled[id] = true;
-	set_task(g_eCvar[CVAR_COOLDOWN], "task_GrabHit", id+TASK_ID_HIT);
+    if (flHealth - g_eCVars[CVAR_DAMAGE] > 0.0)
+    {
+        set_entvar(iTarget, var_health, flHealth - g_eCVars[CVAR_DAMAGE])
+    }
+    else
+    {
+        ExecuteHam(Ham_Killed, iTarget, id, g_eCVars[CVAR_GIBS])
+    }
+
+    rh_emit_sound2(iTarget, 0, CHAN_BODY, SOUND_HIT, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
+
+    g_bHitEnabled[id] = true
+    set_task(g_eCVars[CVAR_COOLDOWN], "task_HitPlayer", id)
 }
 
-public grab_on_finish(id, iEntity)
+public grab_on_finish(id, iEnt)
 {
-	if(g_bHitEnabled[id])
-	{
-		g_bHitEnabled[id] = false;
-		remove_task(id+TASK_ID_HIT);
-	}
+    if (g_bHitEnabled[id])
+    {
+        g_bHitEnabled[id] = false
+        remove_task(id)
+    }
 }
 
-public task_GrabHit(id)
+public task_HitPlayer(id)
 {
-	id -= TASK_ID_HIT;
-
-	g_bHitEnabled[id] = false;
+    g_bHitEnabled[id] = false
 }
-
-/****************************************************************************************
-****************************************************************************************/
 
 stock UTIL_ScreenShake(id, Float:flAmplitude, Float:flDuration, Float:flFrequency)
 {
-	static iMsgScreenShake;
+    static iMsgScreenShake
 
-	if(!iMsgScreenShake)
-		iMsgScreenShake = get_user_msgid("ScreenShake");
+    if (!iMsgScreenShake)
+    {
+        iMsgScreenShake = get_user_msgid("ScreenShake")
+    }
 
-	new iAmplitude = UTIL_FixedUnsigned16(flAmplitude, 1<<12);	// max 16.0
-	new iDuration = UTIL_FixedUnsigned16(flDuration, 1<<12);	// max 16.0
-	new iFrequency = UTIL_FixedUnsigned16(flFrequency, 1<<8);	// max 256.0
+    new iAmplitude = UTIL_FixedUnsigned16(flAmplitude, 1<<12)   // max 16.0
+    new iDuration = UTIL_FixedUnsigned16(flDuration, 1<<12)     // max 16.0
+    new iFrequency = UTIL_FixedUnsigned16(flFrequency, 1<<8)    // max 256.0
 
-	message_begin(MSG_ONE, iMsgScreenShake, .player = id);
-	{
-		write_short(iAmplitude);					// amplitude
-		write_short(iDuration);						// duration
-		write_short(iFrequency);					// frequency
-	}
-	message_end();
+    message_begin(MSG_ONE, iMsgScreenShake, .player = id)
+    write_short(iAmplitude) // amplitude
+    write_short(iDuration)  // duration
+    write_short(iFrequency) // frequency
+    message_end()
 }
 
 // thx ConnorMcLeod
 stock UTIL_FixedUnsigned16(Float:flValue, iScale)
 {
-    new iOutput;
-
-    iOutput = floatround(flValue * iScale);
+    new iOutput = floatround(flValue * iScale)
 
     if (iOutput < 0)
-        iOutput = 0;
+    {
+        iOutput = 0
+    }
 
     if (iOutput > 0xFFFF)
-        iOutput = 0xFFFF;
+    {
+        iOutput = 0xFFFF
+    }
 
-    return iOutput;
+    return iOutput
 }
 
 stock UTIL_Blood(Float:flOrigin[3])
 {
-	message_begin_f(MSG_BROADCAST, SVC_TEMPENTITY);
-	{
-		write_byte(TE_BLOODSTREAM);
-		write_coord_f(flOrigin[0]);					// pos.x
-		write_coord_f(flOrigin[1]);					// pos.y
-		write_coord_f(flOrigin[2] + 15);			// pos.z
-		write_coord_f(random_float(0.0, 255.0));	// vec.x
-		write_coord_f(random_float(0.0, 255.0));	// vec.y
-		write_coord_f(random_float(0.0, 255.0));	// vec.z
-		write_byte(70);								// col index
-		write_byte(random_num(50, 250));			// speed
-	}
-	message_end();
+    message_begin_f(MSG_BROADCAST, SVC_TEMPENTITY)
+    write_byte(TE_BLOODSTREAM)
+    write_coord_f(flOrigin[0])              // pos.x
+    write_coord_f(flOrigin[1])              // pos.y
+    write_coord_f(flOrigin[2] + 15)         // pos.z
+    write_coord_f(random_float(0.0, 255.0)) // vec.x
+    write_coord_f(random_float(0.0, 255.0)) // vec.y
+    write_coord_f(random_float(0.0, 255.0)) // vec.z
+    write_byte(70)                          // col index
+    write_byte(random_num(50, 250))         // speed
+    message_end()
 }

@@ -2,85 +2,66 @@
 #include <reapi>
 #include <grab_modular>
 
-#pragma semicolon 1
+public stock const PluginName[] = "Grab: No Fall Damage After Grabbing"
+public stock const PluginVersion[] = "2.0.0"
+public stock const PluginAuthor[] = "twisterniq"
 
-new const PLUGIN_NAME[] = "Grab: No Fall Damage After Grabbing";
-new const PLUGIN_VERSION[] = "1.0.0";
-new const PLUGIN_AUTHOR[] = "w0w";
-
-/****************************************************************************************
-****************************************************************************************/
-
-enum _:Cvars
-{
-	CVAR_ENABLED,
-};
-
-new g_eCvar[Cvars];
-
-new bool:g_bPlayerInAir[MAX_PLAYERS+1];
+new g_iCVarEnabled
+new bool:g_bPlayerInAir[MAX_PLAYERS + 1]
 
 public plugin_init()
 {
-	register_plugin(
-		.plugin_name = PLUGIN_NAME,
-		.version = PLUGIN_VERSION,
-		.author = PLUGIN_AUTHOR
-	);
+    register_plugin(PluginName, PluginVersion, PluginAuthor)
 
-	register_dictionary("grab_no_fall_damage_after_grabbing.txt");
-
-	RegisterHookChain(RG_CSGameRules_FlPlayerFallDamage, "refwd_FlPlayerFallDamage_Pre", false);
-	RegisterHookChain(RH_SV_DropClient, "refwd_DropClient_Post", true);
-
-	func_RegisterCvars();
+    RegisterHookChain(RG_CSGameRules_FlPlayerFallDamage, "CSGameRules_FlPlayerFallDamage_Pre", false)
+    func_CreateCVars()
 }
 
-func_RegisterCvars()
+func_CreateCVars()
 {
-	new pCvar;
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_no_fall_damage_after_grabbing_enabled",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_ENABLED"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_iCVarEnabled
+    )
 
-	pCvar = create_cvar("grab_no_fall_damage_after_grabbing_enabled", "1", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_NO_FALL_DAMAGE_AFTER_GRABBING_CVAR_ENABLED"), true, 0.0, true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_ENABLED]);
-
-	AutoExecConfig(true, "grab_no_fall_damage_after_grabbing", "grab_modular");
+    AutoExecConfig(true, "grab_no_fall_damage_after_grabbing", "grab_modular")
 }
 
-public grab_on_start(id, iEntity)
+public grab_on_finish(id, iTarget)
 {
-	if(!g_eCvar[CVAR_ENABLED])
-		return;
+    if (!g_iCVarEnabled)
+    {
+        return
+    }
 
-	if(is_user_connected(iEntity))
-		g_bPlayerInAir[iEntity] = false;
+    if (!(1 <= iTarget <= MaxClients))
+    {
+        return
+    }
+
+    g_bPlayerInAir[iTarget] = !(get_entvar(iTarget, var_flags) & FL_ONGROUND)
 }
 
-public grab_on_finish(id, iEntity)
+public CSGameRules_FlPlayerFallDamage_Pre(const id)
 {
-	if(!g_eCvar[CVAR_ENABLED])
-		return;
+    if (!g_bPlayerInAir[id])
+    {
+        return
+    }
 
-	if(!is_user_connected(iEntity) || get_entvar(iEntity, var_flags) & FL_ONGROUND)
-		return;
-
-	g_bPlayerInAir[iEntity] = true;
+    g_bPlayerInAir[id] = false
+    SetHookChainReturn(ATYPE_FLOAT, 0.0)
 }
 
-public refwd_FlPlayerFallDamage_Pre(const id)
+public client_disconnected(id)
 {
-	if(!g_eCvar[CVAR_ENABLED])
-		return HC_CONTINUE;
-
-	if(!g_bPlayerInAir[id])
-		return HC_CONTINUE;
-
-	g_bPlayerInAir[id] = false;
-
-	SetHookChainReturn(ATYPE_FLOAT, 0.0);
-	return HC_CONTINUE;
-}
-
-public refwd_DropClient_Post(const id)
-{
-	g_bPlayerInAir[id] = false;
+    g_bPlayerInAir[id] = false
 }

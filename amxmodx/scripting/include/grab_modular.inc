@@ -1,36 +1,108 @@
 #if defined _grab_modular_included
-	#endinput
+    #endinput
 #endif
 #define _grab_modular_included
 
-#pragma reqlib grab_modular
+enum
+{
+    GRAB_ALLOWED,
+    GRAB_BLOCKED
+};
+
+#tryinclude <grab_menu>
 
 /**
- * Called when player uses +grab command.
+ * Returns grabber index if entity is being grabbed.
  *
- * @param id        Client index
+ * @param entity    Grabbed index
  *
- * @return          PLUGIN_CONTINUE to let using the command
- *                  PLUGIN_HANDLED or higher to prevent using the command
+ * @return          Grabber index, or 0 if not grabbed
  */
-forward grab_on_use_command(id);
+native grab_get_grabber(entity);
 
 /**
- * Called when player starts to grab an entity.
+ * Returns grabbed index if player is grabbing.
+ *
+ * @param id        Grabber index
+ *
+ * @return          Grabbed index, or 0 if not grabbing
+ * @error           If the grabber index is not within the range of 1 to MaxClients,
+ *                  an error will be thrown.
+ */
+native grab_get_grabbed(id);
+
+/**
+ * Returns the distance between grabber and grabbed.
+ *
+ * @param id        Grabber index
+ *
+ * @return          Distance between grabber and grabbed, or 0 if not grabbing
+ * @error           If the grabber index is not within the range of 1 to MaxClients,
+ *                  an error will be thrown.
+ */
+native Float:grab_get_distance(id);
+
+/**
+ * Sets the distance between grabber and grabbed.
+ *
+ * @param id        Grabber index
+ * @param distance  New distance
+ *
+ * @return          true on success, false otherwise
+ * @error           If the grabber index is not within the range of 0 to MaxClients,
+ *                  an error will be thrown.
+ */
+native bool:grab_set_distance(id, Float:distance);
+
+/**
+ * Disables grab for player.
+ *
+ * @param id        Grabber index, or 0 for all players
+ *
+ * @return          true on success, false otherwise
+ * @error           If the client index is not within the range of 1 to MaxClients,
+ *                  an error will be thrown.
+ */
+native bool:grab_disable(id);
+
+/**
+ * Returns player access to grab.
  *
  * @param id        Client index
- * @param entity    Grabbed entity
  *
- * @return          PLUGIN_CONTINUE to let starting to grab
- *                  PLUGIN_HANDLED or higher to prevent starting to grab
+ * @return          Access level
+ * @error           If the client index is not within the range of 1 to MaxClients,
+ *                  an error will be thrown.
+ */
+native grab_get_user_access(id);
+
+/**
+ * Sets player access to grab.
+ *
+ * @param id        Client index, or 0 for all players
+ * @param level     Access level, 0 to remove access
+ *
+ * @return          true on success, false otherwise
+ * @error           If the client index is greater than 0 and is not within the range of 0 to MaxClients,
+ *                  an error will be thrown.
+ */
+native bool:grab_set_user_access(id, level = 1);
+
+/**
+ * Called when player starts to grab.
+ *
+ * @param id        Grabber index
+ * @param entity    Grabbed index
+ *
+ * @noreturn
  */
 forward grab_on_start(id, entity);
 
 /**
- * Called when player finishes grabbing an entity.
+ * Called when player finishes grabbing.
  *
- * @param id        Client index
- * @param entity    Grabbed entity
+ * @param id        Grabber index
+ * @param entity    Grabbed index
  *
  * @noreturn
  */
@@ -42,88 +114,17 @@ forward grab_on_finish(id, entity);
  * @param id        Client index
  * @param entity    Grabbed entity
  *
- * @return          PLUGIN_CONTINUE to continue grabbing
- *                  PLUGIN_HANDLED or higher to prevent grabbing
+ * @noreturn
  */
 forward grab_on_grabbing(id, entity);
 
 /**
- * Returns client index if entity is grabbed.
- *
- * @param entity    Entity index
- *
- * @return          Client index, or 0 if not grabbed
- */
-native is_entity_grabbed(entity);
-
-/**
- * Returns entity index if player is grabbing.
+ * Called when player access level is changed.
  *
  * @param id        Client index
- *
- * @return          Entity index, or 0 if not grabbing
- * @error			If the client index is not within the range of 1 to MaxClients,
- *					an error will be thrown.
- */
-native is_player_grabbing(id);
-
-/**
- * Returns if player has access to use grab.
- *
- * @param id        Client index
- * @param custom	Access given by grab_set_player_access
- *
- * @return			true if player has access, false otherwise
- * @error			If the client index is not within the range of 1 to MaxClients,
- *					an error will be thrown.
- */
-native grab_has_player_access(id, bool:custom = false);
-
-/**
- * Sets player grab access.
- *
- * @note Set id 0 to give access to all players
- *
- * @param id        Client index
- * @param set		Access
+ * @param old_level Previous level access
+ * @param new_level New level access
  *
  * @noreturn
- * @error			If the client index is not within the range of 0 to MaxClients,
- *					an error will be thrown.
  */
-native grab_set_player_access(id, bool:set = true);
-
-/**
- * Returns the distance between grabber and grabbed.
- *
- * @param id        Client index
- * @param entity	Entity index
- *
- * @return          Distance between grabber and grabbed
- * @error			If the client index is not within the range of 1 to MaxClients,
- *					an error will be thrown.
- */
-native Float:grab_get_distance(id, entity);
-
-/**
- * Sets the distance between grabber and grabbed.
- *
- * @param id        Client index
- * @param entity	Entity index
- *
- * @return          true on success, false otherwise
- * @error			If the client index is not within the range of 0 to MaxClients,
- *					an error will be thrown.
- */
-native bool:grab_set_distance(id, entity, Float:distance);
-
-/**
- * Disables grab for player.
- *
- * @param id		Client index, or 0 to disable for all players
- *
- * @return          true on success, false otherwise
- * @error			If the client index is not within the range of 1 to MaxClients,
- *					an error will be thrown.
- */
-native grab_disable(id);
+forward grab_access_modified(id, old_level, new_level);

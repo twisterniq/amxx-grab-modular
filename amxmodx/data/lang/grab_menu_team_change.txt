@@ -1,0 +1,23 @@
+[en]
+GRAB_MENU_TEAM_CHANGE = Transfer to other team
+GRAB_MENU_TEAM_CHANGE_MSG = ^4* ^4%n ^1transferred ^3%n ^1with grab to other team
+
+GRAB_MENU_TEAM_CHANGE_CVAR_TO = Team to transfer to^n1 - T^n2 - CT^n3 - SPECTATOR^n4 - opposite
+GRAB_MENU_TEAM_CHANGE_CVAR_KILL = Kill after transferring^n0 - disabled^n1 - enabled
+GRAB_MENU_TEAM_CHANGE_CVAR_RESPAWN = Respawn after killing^n0 - disabled^n1 - enabled
+
+[es]
+GRAB_MENU_TEAM_CHANGE = Transferir a otro equipo
+GRAB_MENU_TEAM_CHANGE_MSG = ^4* ^4%n ^1ha cambiado el equipo de ^3%n ^1con el grab
+
+GRAB_MENU_TEAM_CHANGE_CVAR_TO = A qué equipo transferir^n1 - T^n2 - CT^n3 - SPECTATOR^n4 - contrario
+GRAB_MENU_TEAM_CHANGE_CVAR_KILL = Matar después de transferir^n0 - deshabilitar^n1 - habilitar
+GRAB_MENU_TEAM_CHANGE_CVAR_RESPAWN = Revivir despues de matar^n0 - deshabilitar^n1 - habilitar
+
+[ru]
+GRAB_MENU_TEAM_CHANGE = Перевести за другую команду
+GRAB_MENU_TEAM_CHANGE_MSG = ^4* ^4%n ^1перевел(а) ^3%n ^1грабом за другую команду
+
+GRAB_MENU_TEAM_CHANGE_CVAR_TO = За какую команду переводить^n1 - T^n2 - CT^n3 - SPECTATOR^n4 - противоположную
+GRAB_MENU_TEAM_CHANGE_CVAR_KILL = Убивать после перевода^n0 - выкл.^n1 - вкл.
+GRAB_MENU_TEAM_CHANGE_CVAR_RESPAWN = Возрождать после убийства^n0 - выкл.^n1 - вкл.

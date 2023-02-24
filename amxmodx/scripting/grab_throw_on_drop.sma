@@ -2,67 +2,76 @@
 #include <reapi>
 #include <grab_modular>
 
-#pragma semicolon 1
+public stock const PluginName[] = "Grab: Throw on Drop"
+public stock const PluginVersion[] = "2.0.0"
+public stock const PluginAuthor[] = "twisterniq"
 
-new const PLUGIN_NAME[] = "Grab: Throw on Drop";
-new const PLUGIN_VERSION[] = "1.0.0";
-new const PLUGIN_AUTHOR[] = "w0w";
-
-/****************************************************************************************
-****************************************************************************************/
-
-enum _:Cvars
+enum _:CVars
 {
-	CVAR_ENABLED,
-	CVAR_VELOCITY
-};
+    CVAR_ENABLED,
+    CVAR_VELOCITY
+}
 
-new g_eCvar[Cvars];
+new g_eCVars[CVars]
 
 public plugin_init()
 {
-	register_plugin(
-		.plugin_name = PLUGIN_NAME,
-		.version = PLUGIN_VERSION,
-		.author = PLUGIN_AUTHOR
-	);
+    register_plugin(PluginName, PluginVersion, PluginAuthor)
+    register_dictionary("grab_throw_on_drop.txt")
 
-	register_dictionary("grab_throw_on_drop.txt");
+    register_clcmd("drop", "clcmd_Drop")
 
-	RegisterHookChain(RG_CBasePlayer_DropPlayerItem, "refwd_DropPlayerItem_Pre", false);
-
-	func_RegisterCvars();
+    func_CreateCVars()
 }
 
-func_RegisterCvars()
+func_CreateCVars()
 {
-	new pCvar;
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_throw_on_drop_enabled",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_CVAR_ENABLED"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_eCVars[CVAR_ENABLED]
+    )
 
-	pCvar = create_cvar("grab_throw_on_drop_enabled", "1", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_THROW_ON_DROP_CVAR_ENABLED"), true, 0.0, true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_ENABLED]);
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_throw_on_drop_velocity",
+            .string = "1500",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_THROW_ON_DROP_CVAR_VELOCITY"),
+            .has_min = true,
+            .min_val = 1.0
+        ), g_eCVars[CVAR_VELOCITY]
+    )
 
-	pCvar = create_cvar("grab_throw_on_drop_velocity", "1500", FCVAR_NONE, fmt("%L", LANG_SERVER, "GRAB_THROW_ON_DROP_CVAR_VELOCITY"), true, 1.0);
-	bind_pcvar_num(pCvar, g_eCvar[CVAR_VELOCITY]);
-
-	AutoExecConfig(true, "grab_throw_on_drop", "grab_modular");
+    AutoExecConfig(true, "grab_throw_on_drop", "grab_modular")
 }
 
-public refwd_DropPlayerItem_Pre(const id, const pszItemName[])
+public clcmd_Drop(const id)
 {
-	if(!g_eCvar[CVAR_ENABLED])
-		return HC_CONTINUE;
+    if (!g_eCVars[CVAR_ENABLED])
+    {
+        return PLUGIN_CONTINUE
+    }
 
-	new iTarget = is_player_grabbing(id);
+    new iTarget = grab_get_grabbed(id)
 
-	if(!iTarget)
-		return HC_CONTINUE;
+    if (!iTarget)
+    {
+        return PLUGIN_CONTINUE
+    }
 
-	new Float:flVelocity[3];
-	velocity_by_aim(id, g_eCvar[CVAR_VELOCITY], flVelocity);
+    new Float:flVelocity[3]
+    velocity_by_aim(id, g_eCVars[CVAR_VELOCITY], flVelocity)
 
-	set_entvar(iTarget, var_velocity, flVelocity);
-	grab_disable(id);
+    set_entvar(iTarget, var_velocity, flVelocity)
+    grab_disable(id)
 
-	SetHookChainReturn(ATYPE_INTEGER, false);
-	return HC_SUPERCEDE;
+    return PLUGIN_HANDLED
 }

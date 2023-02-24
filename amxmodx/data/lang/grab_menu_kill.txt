@@ -1,0 +1,11 @@
+[en]
+GRAB_MENU_KILL = Kill
+GRAB_MENU_KILL_MSG = * ^4%n ^1killed ^3%n ^1with grab
+
+[es]
+GRAB_MENU_KILL = Matar
+GRAB_MENU_KILL_MSG = * ^4%n ^1ha matado a ^3%n ^1con el grab
+
+[ru]
+GRAB_MENU_KILL = Убить
+GRAB_MENU_KILL_MSG = * ^4%n ^1убил(а) ^3%n ^1грабом
