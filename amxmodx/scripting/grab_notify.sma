@@ -3,7 +3,7 @@
 #include <grab_modular>
 
 public stock const PluginName[] = "Grab: Notify"
-public stock const PluginVersion[] = "2.0.0"
+public stock const PluginVersion[] = "2.1.0"
 public stock const PluginAuthor[] = "twisterniq"
 
 #define is_user_valid(%0) (1 <= %0 <= MaxClients)
@@ -12,9 +12,9 @@ enum _:CVars
 {
     CVAR_ENABLED,
     CVAR_MSG_TYPE,
-    CVAR_TYPE,
     CVAR_ONLY_PLAYERS,
-    CVAR_RECEIVER
+    CVAR_PLAYER_RECEIVER,
+    CVAR_NO_PLAYER_RECEIVER
 }
 
 enum _:MessageTypes
@@ -25,13 +25,21 @@ enum _:MessageTypes
     MT_DHUD
 }
 
+enum _:NotificationTypes
+{
+    NT_GRABBER = 1,
+    NT_GRABBED,
+    NT_GRABBER_GRABBED,
+    NT_ALL
+}
+
 enum _:ReceiverType
 {
     RT_ALL,
     RT_GRABBER
 }
 
-new g_eCVars[CVars]
+new g_iCVars[CVars]
 new g_iSyncHud
 
 public plugin_init()
@@ -55,7 +63,7 @@ func_CreateCVars()
             .min_val = 0.0,
             .has_max = true, 
             .max_val = 1.0
-        ), g_eCVars[CVAR_ENABLED]
+        ), g_iCVars[CVAR_ENABLED]
     )
 
     bind_pcvar_num(
@@ -68,20 +76,7 @@ func_CreateCVars()
             .min_val = 1.0,
             .has_max = true, 
             .max_val = 4.0
-        ), g_eCVars[CVAR_MSG_TYPE]
-    )
-
-    bind_pcvar_num(
-        create_cvar(
-            .name = "grab_notify_type",
-            .string = "1",
-            .flags = FCVAR_NONE,
-            .description = fmt("%L", LANG_SERVER, "GRAB_NOTIFY_CVAR_TYPE"),
-            .has_min = true,
-            .min_val = 1.0,
-            .has_max = true, 
-            .max_val = 4.0
-        ), g_eCVars[CVAR_TYPE]
+        ), g_iCVars[CVAR_MSG_TYPE]
     )
 
     bind_pcvar_num(
@@ -94,20 +89,33 @@ func_CreateCVars()
             .min_val = 0.0,
             .has_max = true, 
             .max_val = 1.0
-        ), g_eCVars[CVAR_ONLY_PLAYERS]
+        ), g_iCVars[CVAR_ONLY_PLAYERS]
     )
 
     bind_pcvar_num(
         create_cvar(
-            .name = "grab_notify_receiver",
+            .name = "grab_notify_player_receiver",
+            .string = "3",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_NOTIFY_CVAR_PLAYER_RECEIVER"),
+            .has_min = true,
+            .min_val = 1.0,
+            .has_max = true, 
+            .max_val = 4.0
+        ), g_iCVars[CVAR_PLAYER_RECEIVER]
+    )
+
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_notify_no_player_receiver",
             .string = "0",
             .flags = FCVAR_NONE,
-            .description = fmt("%L", LANG_SERVER, "GRAB_NOTIFY_CVAR_RECEIVER"),
+            .description = fmt("%L", LANG_SERVER, "GRAB_NOTIFY_CVAR_NO_PLAYER_RECEIVER"),
             .has_min = true,
             .min_val = 0.0,
             .has_max = true, 
             .max_val = 1.0
-        ), g_eCVars[CVAR_RECEIVER]
+        ), g_iCVars[CVAR_NO_PLAYER_RECEIVER]
     )
 
     AutoExecConfig(true, "grab_notify", "grab_modular")
@@ -115,7 +123,7 @@ func_CreateCVars()
 
 public grab_on_start(id, iEnt)
 {
-    if (!g_eCVars[CVAR_ENABLED])
+    if (!g_iCVars[CVAR_ENABLED])
     {
         return
     }
@@ -123,69 +131,67 @@ public grab_on_start(id, iEnt)
     // Is target a player?
     if (is_user_valid(iEnt))
     {
-        switch (g_eCVars[CVAR_TYPE])
+        switch (g_iCVars[CVAR_PLAYER_RECEIVER])
         {
-            case MT_CHAT:
+            case NT_GRABBER:
+            {
+                func_PrintMessage(id, iEnt, "%l", "GRAB_NOTIFY_MSG_TYPE_GRABBER", iEnt)
+            }
+            case NT_GRABBED:
+            {
+                func_PrintMessage(iEnt, id, "%l", "GRAB_NOTIFY_MSG_TYPE_GRABBED", id)
+            }
+            case NT_GRABBER_GRABBED:
             {
                 func_PrintMessage(id, iEnt, "%l", "GRAB_NOTIFY_MSG_TYPE_GRABBER", iEnt)
                 func_PrintMessage(iEnt, id, "%l", "GRAB_NOTIFY_MSG_TYPE_GRABBED", id)
             }
-            case MT_PRINT_CENTER:
-            {
-                func_PrintMessage(id, iEnt, "%l", "GRAB_NOTIFY_MSG_TYPE_GRABBER", iEnt)
-                func_PrintMessage(iEnt, id, "%l", "GRAB_NOTIFY_MSG_TYPE_GRABBED", id)
-            }
-            case MT_HUD:
-            {
-                func_PrintMessage(id, iEnt, "%l", "GRAB_NOTIFY_MSG_TYPE_GRABBER", iEnt)
-                func_PrintMessage(iEnt, id, "%l", "GRAB_NOTIFY_MSG_TYPE_GRABBED", id)
-            }
-            case MT_DHUD:
+            case NT_ALL:
             {
                 func_PrintMessage(0, iEnt, "%l", "GRAB_NOTIFY_MSG_TYPE_ALL", id, iEnt)
             }
         }
     }
     // Check non-player entities only if CVar is disabled
-    else if (!g_eCVars[CVAR_ONLY_PLAYERS])
+    else if (!g_iCVars[CVAR_ONLY_PLAYERS])
     {
         new szClassName[32]
         get_entvar(iEnt, var_classname, szClassName, charsmax(szClassName))
 
-        new iReceiver = g_eCVars[CVAR_RECEIVER]
+        new iReceiver = g_iCVars[CVAR_NO_PLAYER_RECEIVER]
 
         if (equal(szClassName, "weaponbox") || equal(szClassName, "armoury_entity"))
         {
             if (iReceiver == RT_ALL)
             {
-                func_PrintMessage(iReceiver, iReceiver, "%l", "GRAB_NOTIFY_WEAPON_ALL", id)
+                func_PrintMessage(0, id, "%l", "GRAB_NOTIFY_WEAPON_ALL", id)
             }
             else
             {
-                func_PrintMessage(iReceiver, iReceiver, "%l", "GRAB_NOTIFY_WEAPON_GRABBER")
+                func_PrintMessage(id, print_team_default, "%l", "GRAB_NOTIFY_WEAPON_GRABBER")
             }
         }
         else if (equal(szClassName, "weapon_shield"))
         {
             if (iReceiver == RT_ALL)
             {
-                func_PrintMessage(iReceiver, iReceiver, "%l", "GRAB_NOTIFY_WEAPON_SHIELD_ALL", id)
+                func_PrintMessage(0, id, "%l", "GRAB_NOTIFY_WEAPON_SHIELD_ALL", id)
                 
             }
             else
             {
-                func_PrintMessage(iReceiver, iReceiver, "%l", "GRAB_NOTIFY_WEAPON_SHIELD_GRABBER")
+                func_PrintMessage(id, print_team_default, "%l", "GRAB_NOTIFY_WEAPON_SHIELD_GRABBER")
             }
         }
         else if (equal(szClassName, "func_vehicle"))
         {
             if (iReceiver == RT_ALL)
             {
-                func_PrintMessage(iReceiver, iReceiver, "%l", "GRAB_NOTIFY_VEHICLE_ALL", id)
+                func_PrintMessage(0, id, "%l", "GRAB_NOTIFY_VEHICLE_ALL", id)
             }
             else
             {
-                func_PrintMessage(iReceiver, iReceiver, "%l", "GRAB_NOTIFY_VEHICLE_GRABBER")
+                func_PrintMessage(id, print_team_default, "%l", "GRAB_NOTIFY_VEHICLE_GRABBER")
             }
         }
     }
@@ -193,7 +199,7 @@ public grab_on_start(id, iEnt)
 
 func_PrintMessage(iReceiver, iSender, const szMessage[], any:...)
 {
-    switch (g_eCVars[CVAR_MSG_TYPE])
+    switch (g_iCVars[CVAR_MSG_TYPE])
     {
         case MT_CHAT:
         {
