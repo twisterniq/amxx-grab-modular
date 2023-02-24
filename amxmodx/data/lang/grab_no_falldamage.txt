@@ -1,0 +1,11 @@
+[en]
+GRAB_NO_FALLDAMAGE_AFTER_GRABBING = Block fall damage after grab was finished^n0 - don't block^n1 - block
+GRAB_NO_FALLDAMAGE_ON_GRABBING = Block fall damage when using grab^n0 - don't block^n1 - block
+
+[es]
+GRAB_NO_FALLDAMAGE_AFTER_GRABBING = Bloquear el daño por caída después de usar el grab^n0 - no bloquear^n1 - bloquear
+GRAB_NO_FALLDAMAGE_ON_GRABBING = Bloquear el daño por caída durante el uso del grab^n0 - no bloquear^n1 - bloquear
+
+[ru]
+GRAB_NO_FALLDAMAGE_AFTER_GRABBING = Блокировать урон от падения после использования граба^n0 - выкл.^n1 - вкл.
+GRAB_NO_FALLDAMAGE_ON_GRABBING = Блокировать урон от падения во время использования граба^n0 - выкл.^n1 - вкл.
