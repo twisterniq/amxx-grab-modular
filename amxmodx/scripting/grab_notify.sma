@@ -176,7 +176,6 @@ public grab_on_start(id, iEnt)
             if (iReceiver == RT_ALL)
             {
                 func_PrintMessage(0, id, "%l", "GRAB_NOTIFY_WEAPON_SHIELD_ALL", id)
-                
             }
             else
             {
