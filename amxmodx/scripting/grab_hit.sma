@@ -166,7 +166,7 @@ public grab_on_grabbing(id, iTarget)
         return
     }
 
-    if (!(1 <= iTarget <= MaxClients))
+    if (!is_user_valid(iTarget))
     {
         // Target is not a player
         return
@@ -263,4 +263,9 @@ stock UTIL_ScreenShake(id, Float:flAmplitude, Float:flDuration, Float:flFrequenc
 stock float_to_short(Float:flValue)
 {
     return clamp(floatround(flValue * (1<<12)), 0, 0xFFFF)
+}
+
+stock bool:is_user_valid(const id)
+{
+    return (id > 0 && id <= MaxClients)
 }
