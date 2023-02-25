@@ -4,7 +4,7 @@
 #include <xs>
 
 public stock const PluginName[] = "Grab Modular"
-public stock const PluginVersion[] = "2.0.0"
+public stock const PluginVersion[] = "2.1.0"
 public stock const PluginAuthor[] = "twisterniq"
 
 /****************************************************************************************
@@ -15,6 +15,7 @@ new const VALID_CLASSNAMES[][] =
 {
     "weaponbox",
     "armoury_entity",
+    "weapon_shield",
     // "func_vehicle"
 }
 
@@ -22,12 +23,10 @@ new const VALID_CLASSNAMES[][] =
 //
 // There is no need to change it unless you want a faster response,
 // but keep in mind that the lower the cooldown between checks, the greater the load
-const Float:CHECK_TIME = 0.2
+const Float:CHECK_TIME = 0.1
 
 /****************************************************************************************
 ****************************************************************************************/
-
-#define is_user_valid(%0) (1 <= %0 <= MaxClients)
 
 #define CHECK_NATIVE_PLAYER(%0,%1) \
     if (!is_user_valid(%0)) \
@@ -361,7 +360,7 @@ func_GrabDisable(const id)
         if (g_eCVars[CVAR_LADDER_SUPPORT])
         {
             // Player can now use ladders again
-            func_SetClimbAbility(iTarget, true)
+            set_prevent_climb(iTarget, false)
         }
     }
 
@@ -508,7 +507,7 @@ func_StartGrabbing(const id, const iEnt)
         if (g_eCVars[CVAR_LADDER_SUPPORT])
         {
             // Disable the ability to use ladders
-            func_SetClimbAbility(iEnt, false)
+            set_prevent_climb(iEnt, true)
         }
     }
 
@@ -600,6 +599,11 @@ func_GrabThink(const id)
 /****************************************************************************************
 ****************************************************************************************/
 
+stock bool:is_user_valid(const id)
+{
+    return (id > 0 && id <= MaxClients)
+}
+
 stock UTIL_GetTargetByTraceLine(const Float:flVStart[3], const Float:flVEnd[3], const pIgnore, Float:flVHitPos[3])
 {
     engfunc(EngFunc_TraceLine, flVStart, flVEnd, 0, pIgnore, 0)
@@ -615,17 +619,17 @@ stock UTIL_GetViewPosition(const id, Float:flViewPosition[3], Float:flVOfs[3] = 
 }
 
 // thx s1lent
-stock func_SetClimbAbility(id, bool:bCanClimb)
+stock set_prevent_climb(id, bool:bPrevent)
 {
     new iFlags = get_entvar(id, var_iuser3)
 
-    if (bCanClimb)
+    if (bPrevent)
     {
-        iFlags &= ~PLAYER_PREVENT_CLIMB
+        iFlags |= PLAYER_PREVENT_CLIMB
     }
     else
     {
-        iFlags |= PLAYER_PREVENT_CLIMB
+        iFlags &= ~PLAYER_PREVENT_CLIMB
     }
 
     set_entvar(id, var_iuser3, iFlags)
