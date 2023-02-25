@@ -1,14 +1,30 @@
 [en]
 GRAB_HIT_CVAR_DAMAGE = How much damage to do 
 GRAB_HIT_CVAR_COOLDOWN = Cooldown in seconds before next hit
-GRAB_HIT_CVAR_GIBS = Gibs after kill^n0 - disabled^n1 - enabled
+GRAB_HIT_CVAR_GIBS = Gibs on death^n0 - disabled^n1 - enabled
+GRAB_HIT_CVAR_BLOOD = Show blood on hit^n0 - disabled^n1 - enabled
+GRAB_HIT_CVAR_SCREENSHAKE = Shake the screen of the player who was hit^n0 - disabled^n1 - enabled
+GRAB_HIT_CVAR_SCREENSHAKE_AMPLITUDE = The intensity of the shake effect
+GRAB_HIT_CVAR_SCREENSHAKE_DURATION = The length of time that the shake effect should last, in seconds
+GRAB_HIT_CVAR_SCREENSHAKE_FREQUENCY = The speed of the shake effect
 
 [es]
 GRAB_HIT_CVAR_DAMAGE = Cuánta vida quitar en un golpe
 GRAB_HIT_CVAR_COOLDOWN = Tiempo en segundos antes del siguiente golpe
-GRAB_HIT_CVAR_GIBS = Restos del jugador después de su muerte^n0 - habilitar^n1 - deshabilitar
+GRAB_HIT_CVAR_GIBS = Restos del jugador después de su muerte^n0 - deshabilitar^n1 - habilitar
+GRAB_HIT_CVAR_BLOOD = Mostrar sangre al hacer el golpe^n0 - deshabilitar^n1 - habilitar
+GRAB_HIT_CVAR_SCREENSHAKE = Efecto de sacudida^n0 - deshabilitar^n1 - habilitar
+GRAB_HIT_CVAR_SCREENSHAKE_AMPLITUDE = La intensidad del efecto de sacudida
+GRAB_HIT_CVAR_SCREENSHAKE_DURATION = La duración del efecto de sacudida
+GRAB_HIT_CVAR_SCREENSHAKE_FREQUENCY = La velocidad del efecto de sacudida
+
 
 [ru]
 GRAB_HIT_CVAR_DAMAGE = Сколько жизней отнимать при одном ударе
 GRAB_HIT_CVAR_COOLDOWN = Задержка перед следующим ударом
-GRAB_HIT_CVAR_GIBS = Кости после смерти^n0 - выкл.^n1 - вкл.
+GRAB_HIT_CVAR_GIBS = Разрывать на куски при убийстве^n0 - выкл.^n1 - вкл.
+GRAB_HIT_CVAR_BLOOD = Показывать кровь при ударе^n0 - выкл.^n1 - вкл.
+GRAB_HIT_CVAR_SCREENSHAKE = Трясти экран цели при ударе^n0 - выкл.^n1 - вкл.
+GRAB_HIT_CVAR_SCREENSHAKE_AMPLITUDE = Интенсивность эффекта тряски
+GRAB_HIT_CVAR_SCREENSHAKE_DURATION = Продолжительность эффекта тряски, в секундах
+GRAB_HIT_CVAR_SCREENSHAKE_FREQUENCY = Скорость эффекта тряски

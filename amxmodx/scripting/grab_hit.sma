@@ -4,7 +4,7 @@
 #include <grab_modular>
 
 public stock const PluginName[] = "Grab: Hit"
-public stock const PluginVersion[] = "2.0.0"
+public stock const PluginVersion[] = "2.1.0"
 public stock const PluginAuthor[] = "twisterniq"
 
 // Path to the sound that will be played when player is hit
@@ -16,7 +16,12 @@ enum _:CVars
     CVAR_ENABLED,
     Float:CVAR_DAMAGE,
     Float:CVAR_COOLDOWN,
-    CVAR_GIBS
+    CVAR_GIBS,
+    CVAR_BLOOD,
+    CVAR_SCREENSHAKE,
+    Float:CVAR_SCREENSHAKE_AMPLITUDE,
+    Float:CVAR_SCREENSHAKE_DURATION,
+    Float:CVAR_SCREENSHAKE_FREQUENCY
 }
 
 new g_eCVars[CVars]
@@ -70,14 +75,79 @@ func_CreateCVars()
     bind_pcvar_num(
         create_cvar(
             .name = "grab_hit_gibs",
-            .string = "2",
+            .string = "1",
             .flags = FCVAR_NONE,
             .description = fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_GIBS"),
             .has_min = true,
-            .min_val = 1.0,
+            .min_val = 0.0,
             .has_max = true,
-            .max_val = 2.0
+            .max_val = 1.0
         ), g_eCVars[CVAR_GIBS]
+    )
+
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_hit_blood",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_BLOOD"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true,
+            .max_val = 1.0
+        ), g_eCVars[CVAR_BLOOD]
+    )
+
+    bind_pcvar_num(
+        create_cvar(
+            .name = "grab_hit_screenshake",
+            .string = "1",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_SCREENSHAKE"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true,
+            .max_val = 1.0
+        ), g_eCVars[CVAR_SCREENSHAKE]
+    )
+
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_hit_screenshake_amplitude",
+            .string = "8.0",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_SCREENSHAKE_AMPLITUDE"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true,
+            .max_val = 16.0
+        ), g_eCVars[CVAR_SCREENSHAKE_AMPLITUDE]
+    )
+
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_hit_screenshake_duration",
+            .string = "4.0",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_SCREENSHAKE_DURATION"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true,
+            .max_val = 16.0
+        ), g_eCVars[CVAR_SCREENSHAKE_DURATION]
+    )
+
+    bind_pcvar_float(
+        create_cvar(
+            .name = "grab_hit_screenshake_freq",
+            .string = "8.0",
+            .flags = FCVAR_NONE,
+            .description = fmt("%L", LANG_SERVER, "GRAB_HIT_CVAR_SCREENSHAKE_FREQUENCY"),
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true,
+            .max_val = 16.0
+        ), g_eCVars[CVAR_SCREENSHAKE_FREQUENCY]
     )
 
     AutoExecConfig(true, "grab_hit", "grab_modular")
@@ -85,38 +155,41 @@ func_CreateCVars()
 
 public client_disconnected(id)
 {
-    if (g_bHitEnabled[id])
-    {
-        g_bHitEnabled[id] = false
-        remove_task(id)
-    }
+    func_UnsetHit(id)
 }
 
 public grab_on_grabbing(id, iTarget)
 {
-    // Already hitting player
     if (g_bHitEnabled[id])
     {
+        // Already hitting player
         return
     }
 
-    // Grabbed entity is not a player
     if (!(1 <= iTarget <= MaxClients))
     {
+        // Target is not a player
         return
     }
 
-    // Player is not using '+use'
     if (!(get_entvar(id, var_button) & IN_USE))
     {
+        // Player is not using '+use'
         return
     }
 
-    new Float:flOrigin[3]
-    get_entvar(iTarget, var_origin, flOrigin)
+    if (g_eCVars[CVAR_BLOOD])
+    {
+        new Float:flOrigin[3]
+        get_entvar(iTarget, var_origin, flOrigin)
 
-    UTIL_ScreenShake(iTarget, 8.0, 4.0, 100.0)
-    UTIL_Blood(flOrigin)
+        UTIL_Blood(flOrigin)
+    }
+
+    if (g_eCVars[CVAR_SCREENSHAKE])
+    {
+        UTIL_ScreenShake(iTarget, g_eCVars[CVAR_SCREENSHAKE_AMPLITUDE], g_eCVars[CVAR_SCREENSHAKE_DURATION], g_eCVars[CVAR_SCREENSHAKE_FREQUENCY])
+    }
 
     new Float:flHealth
     get_entvar(iTarget, var_health, flHealth)
@@ -127,7 +200,7 @@ public grab_on_grabbing(id, iTarget)
     }
     else
     {
-        ExecuteHam(Ham_Killed, iTarget, id, g_eCVars[CVAR_GIBS])
+        ExecuteHam(Ham_Killed, iTarget, id, g_eCVars[CVAR_GIBS] ? GIB_ALWAYS : GIB_NEVER)
     }
 
     rh_emit_sound2(iTarget, 0, CHAN_BODY, SOUND_HIT, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
@@ -138,11 +211,7 @@ public grab_on_grabbing(id, iTarget)
 
 public grab_on_finish(id, iEnt)
 {
-    if (g_bHitEnabled[id])
-    {
-        g_bHitEnabled[id] = false
-        remove_task(id)
-    }
+    func_UnsetHit(id)
 }
 
 public task_HitPlayer(id)
@@ -150,42 +219,13 @@ public task_HitPlayer(id)
     g_bHitEnabled[id] = false
 }
 
-stock UTIL_ScreenShake(id, Float:flAmplitude, Float:flDuration, Float:flFrequency)
+func_UnsetHit(const id)
 {
-    static iMsgScreenShake
-
-    if (!iMsgScreenShake)
+    if (g_bHitEnabled[id])
     {
-        iMsgScreenShake = get_user_msgid("ScreenShake")
+        remove_task(id)
+        g_bHitEnabled[id] = false
     }
-
-    new iAmplitude = UTIL_FixedUnsigned16(flAmplitude, 1<<12)   // max 16.0
-    new iDuration = UTIL_FixedUnsigned16(flDuration, 1<<12)     // max 16.0
-    new iFrequency = UTIL_FixedUnsigned16(flFrequency, 1<<8)    // max 256.0
-
-    message_begin(MSG_ONE, iMsgScreenShake, .player = id)
-    write_short(iAmplitude) // amplitude
-    write_short(iDuration)  // duration
-    write_short(iFrequency) // frequency
-    message_end()
-}
-
-// thx ConnorMcLeod
-stock UTIL_FixedUnsigned16(Float:flValue, iScale)
-{
-    new iOutput = floatround(flValue * iScale)
-
-    if (iOutput < 0)
-    {
-        iOutput = 0
-    }
-
-    if (iOutput > 0xFFFF)
-    {
-        iOutput = 0xFFFF
-    }
-
-    return iOutput
 }
 
 stock UTIL_Blood(Float:flOrigin[3])
@@ -201,4 +241,26 @@ stock UTIL_Blood(Float:flOrigin[3])
     write_byte(70)                          // col index
     write_byte(random_num(50, 250))         // speed
     message_end()
+}
+
+stock UTIL_ScreenShake(id, Float:flAmplitude, Float:flDuration, Float:flFrequency)
+{
+    static iMsgScreenShake
+
+    if (!iMsgScreenShake)
+    {
+        iMsgScreenShake = get_user_msgid("ScreenShake")
+    }
+
+    message_begin(MSG_ONE, iMsgScreenShake, .player = id)
+    write_short(float_to_short(flAmplitude)) // amplitude
+    write_short(float_to_short(flDuration))  // duration
+    write_short(float_to_short(flFrequency)) // frequency
+    message_end()
+}
+
+// from OciXCrom's msgstocks
+stock float_to_short(Float:flValue)
+{
+    return clamp(floatround(flValue * (1<<12)), 0, 0xFFFF)
 }
