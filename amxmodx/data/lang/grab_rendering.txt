@@ -3,15 +3,18 @@ GRAB_RENDERING_CVAR_RED = Red color of glow (RGB)
 GRAB_RENDERING_CVAR_GREEN = Green color of glow (RGB)
 GRAB_RENDERING_CVAR_BLUE = Blue color of glow (RGB)
 GRAB_RENDERING_CVAR_AMOUNT = Glow amount
+GRAB_RENDERING_CVAR_SAVE = Save the current rendering of the target^n0 - disabled^n1 - enabled
 
 [es]
 GRAB_RENDERING_CVAR_RED = Color rojo del brillo (RGB)
 GRAB_RENDERING_CVAR_GREEN = Color verde del brillo (RGB)
 GRAB_RENDERING_CVAR_BLUE = Color azul del brillo (RGB)
 GRAB_RENDERING_CVAR_AMOUNT = El tamaño del brillo
+GRAB_RENDERING_CVAR_SAVE = Guardar el brillo del jugador^n0 - deshabilitar^n1 - habilitar
 
 [ru]
 GRAB_RENDERING_CVAR_RED = Красный цвет свечения (RGB)
 GRAB_RENDERING_CVAR_GREEN = Зелёный цвет свечения (RGB)
 GRAB_RENDERING_CVAR_BLUE = Синий цвет свечения (RGB)
 GRAB_RENDERING_CVAR_AMOUNT = Размер свечения
+GRAB_RENDERING_CVAR_SAVE = Сохранять предыдущее свечение^n0 - выкл.^n1 - вкл.

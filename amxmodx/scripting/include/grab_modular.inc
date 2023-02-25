@@ -9,6 +9,7 @@ enum
     GRAB_BLOCKED
 };
 
+#tryinclude <grab_rendering>
 #tryinclude <grab_menu>
 
 /**
